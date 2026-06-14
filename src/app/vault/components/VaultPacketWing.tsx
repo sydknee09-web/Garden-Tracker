@@ -25,11 +25,13 @@ import {
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { FilterChipGroup } from "@/components/FilterChipRow";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { getTagStyle } from "@/components/TagBadges";
 import { isSeedTypeTag } from "@/constants/seedTypes";
-import type { PacketStatusFilter } from "@/types/vault";
 import { LoadingState } from "@/components/LoadingState";
 import type { UseFilterStateReturn } from "@/hooks/useFilterState";
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const PacketVaultLazy = dynamic(
   () => import("../PacketVaultLazy").then((m) => ({ default: m.PacketVaultLazy })),
@@ -40,7 +42,10 @@ const EditPacketModal = dynamic(
   { ssr: false }
 );
 
-type PacketFilterDefault = { status: string; vendor: string | null; sowMonth: string | null; sortBy: string; sortDirection: string };
+type PacketFilterDefault = { vendor: string | null; sortBy: string; sortDirection: string };
+
+/** Refine-modal section keys (Phase 2b). */
+export type PacketRefineSection = "plantCategory" | "plantName" | "plantMonth" | "inventory" | "sort" | "packetVendor" | "tags" | "sun" | "spacing" | "germination" | "maturity" | null;
 
 export type VaultPacketWingContextValue = {
   viewMode: "grid" | "list" | "shed";
@@ -49,29 +54,23 @@ export type VaultPacketWingContextValue = {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   packetSearchQuery: string;
   setPacketSearchQuery: (v: string) => void;
-  packetStatusFilter: PacketStatusFilter;
-  setPacketStatusFilter: (v: PacketStatusFilter) => void;
   packetVendorFilter: string | null;
   setPacketVendorFilter: (v: string | null) => void;
   packetSortBy: "date" | "variety" | "vendor" | "qty" | "rating";
   setPacketSortBy: (v: "date" | "variety" | "vendor" | "qty" | "rating") => void;
   packetSortDirection: "asc" | "desc";
   setPacketSortDirection: (v: "asc" | "desc") => void;
-  packetSowMonth: string | null;
-  setPacketSowMonth: (v: string | null) => void;
   packetHasDefault: boolean;
   setPacketHasDefault: (v: boolean) => void;
-  packetStatusChips: { value: PacketStatusFilter; label: string; count: number }[];
-  setPacketStatusChips: React.Dispatch<React.SetStateAction<{ value: PacketStatusFilter; label: string; count: number }[]>>;
   packetVendorChips: { value: string; count: number }[];
   setPacketVendorChips: React.Dispatch<React.SetStateAction<{ value: string; count: number }[]>>;
   /** Canonical plant_category primary-chip counts (Sprint 11.5). */
   packetPlantCategoryChips: { value: string; count: number }[];
   setPacketPlantCategoryChips: React.Dispatch<React.SetStateAction<{ value: string; count: number }[]>>;
+  packetPlantNameOptions: string[];
+  setPacketPlantNameOptions: React.Dispatch<React.SetStateAction<string[]>>;
   packetAvailableTags: string[];
   setPacketAvailableTags: React.Dispatch<React.SetStateAction<string[]>>;
-  packetSeedTypeChips: { value: string; count: number }[];
-  setPacketSeedTypeChips: React.Dispatch<React.SetStateAction<{ value: string; count: number }[]>>;
   packetRefineChips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] };
   setPacketRefineChips: React.Dispatch<React.SetStateAction<{ sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }>>;
   filteredPacketIds: string[];
@@ -80,8 +79,10 @@ export type VaultPacketWingContextValue = {
   setFilteredPacketCount: React.Dispatch<React.SetStateAction<number>>;
   refineByOpen: boolean;
   setRefineByOpen: (v: boolean) => void;
-  refineBySection: "plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null;
-  setRefineBySection: React.Dispatch<React.SetStateAction<"plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>>;
+  refineBySection: PacketRefineSection;
+  setRefineBySection: React.Dispatch<React.SetStateAction<PacketRefineSection>>;
+  moreFiltersOpen: boolean;
+  setMoreFiltersOpen: (v: boolean) => void;
   hasPacketActiveFilters: boolean;
   clearPacketFilters: () => void;
   batchSelectMode: boolean;
@@ -211,22 +212,20 @@ export function VaultPacketWingProvider({
   const { user } = useAuth();
   const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const [packetSearchQuery, setPacketSearchQuery] = useState("");
-  const [packetStatusFilter, setPacketStatusFilter] = useState<PacketStatusFilter>("");
   const [packetVendorFilter, setPacketVendorFilter] = useState<string | null>(null);
   const [packetSortBy, setPacketSortBy] = useState<"date" | "variety" | "vendor" | "qty" | "rating">("variety");
   const [packetSortDirection, setPacketSortDirection] = useState<"asc" | "desc">("asc");
-  const [packetSowMonth, setPacketSowMonth] = useState<string | null>(null);
   const [packetHasDefault, setPacketHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets));
-  const [packetStatusChips, setPacketStatusChips] = useState<{ value: PacketStatusFilter; label: string; count: number }[]>([]);
   const [packetVendorChips, setPacketVendorChips] = useState<{ value: string; count: number }[]>([]);
   const [packetPlantCategoryChips, setPacketPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
+  const [packetPlantNameOptions, setPacketPlantNameOptions] = useState<string[]>([]);
   const [packetAvailableTags, setPacketAvailableTags] = useState<string[]>([]);
-  const [packetSeedTypeChips, setPacketSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [packetRefineChips, setPacketRefineChips] = useState<{ sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }>({ sun: [], spacing: [], germination: [], maturity: [] });
   const [filteredPacketIds, setFilteredPacketIds] = useState<string[]>([]);
   const [filteredPacketCount, setFilteredPacketCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<PacketRefineSection>(null);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [batchSelectMode, setBatchSelectMode] = useState(false);
   const [selectedPacketIds, setSelectedPacketIds] = useState<Set<string>>(new Set());
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -237,32 +236,33 @@ export function VaultPacketWingProvider({
   const packetFiltersRestoredRef = useRef(false);
 
   const hasPacketActiveFilters =
-    packetStatusFilter !== "" ||
     packetVendorFilter !== null ||
-    (packetSowMonth != null && /^\d{4}-\d{2}$/.test(packetSowMonth)) ||
     vaultFilters.filters.plantCategory !== null ||
+    vaultFilters.filters.plantNames.length > 0 ||
+    vaultFilters.filters.plantMonth !== null ||
+    vaultFilters.filters.invHasPackets ||
+    vaultFilters.filters.invPrevOwned ||
     vaultFilters.filters.tags.length > 0 ||
-    vaultFilters.filters.seedTypes.length > 0 ||
     vaultFilters.filters.sun !== null ||
     vaultFilters.filters.spacing !== null ||
     vaultFilters.filters.germination !== null ||
     vaultFilters.filters.maturity !== null;
 
   const clearPacketFilters = useCallback(() => {
-    setPacketStatusFilter("");
     setPacketVendorFilter(null);
-    setPacketSowMonth(null);
-    router.replace("/vault?tab=list", { scroll: false });
     vaultFilters.setPlantCategory(null);
+    vaultFilters.setPlantNames([]);
+    vaultFilters.setPlantMonth(null);
+    if (vaultFilters.filters.invHasPackets) vaultFilters.toggleInventory("hasPackets");
+    if (vaultFilters.filters.invPrevOwned) vaultFilters.toggleInventory("prevOwned");
     vaultFilters.setTags([]);
-    vaultFilters.setSeedTypes([]);
     vaultFilters.setSun(null);
     vaultFilters.setSpacing(null);
     vaultFilters.setGermination(null);
     vaultFilters.setMaturity(null);
     setRefineByOpen(false);
     setRefineBySection(null);
-  }, [router, vaultFilters]);
+  }, [vaultFilters]);
 
   const handleBatchDeletePackets = useCallback(
     async (deleteGrowInstances: boolean) => {
@@ -308,14 +308,10 @@ export function VaultPacketWingProvider({
   useEffect(() => {
     const loaded = loadFilterDefault<PacketFilterDefault>(FILTER_DEFAULT_KEYS.vaultPackets);
     if (!loaded || typeof loaded !== "object") return;
-    const status = typeof loaded.status === "string" ? (loaded.status as PacketStatusFilter) : "";
-    const vendor = typeof loaded.vendor === "string" ? loaded.vendor : loaded.vendor === null ? null : null;
-    const sowMonth = typeof loaded.sowMonth === "string" && /^\d{4}-\d{2}$/.test(loaded.sowMonth) ? loaded.sowMonth : null;
+    const vendor = typeof loaded.vendor === "string" ? loaded.vendor : null;
     const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy as "date" | "variety" | "vendor" | "qty" | "rating" : "variety";
     const sortDirection = loaded.sortDirection === "asc" || loaded.sortDirection === "desc" ? loaded.sortDirection : "asc";
-    setPacketStatusFilter(status);
     setPacketVendorFilter(vendor);
-    setPacketSowMonth(sowMonth);
     setPacketSortBy(sortBy);
     setPacketSortDirection(sortDirection);
   }, []);
@@ -326,12 +322,8 @@ export function VaultPacketWingProvider({
     try {
       const savedPacketSearch = sessionStorage.getItem("packet-vault-search");
       if (typeof savedPacketSearch === "string") setPacketSearchQuery(savedPacketSearch);
-      const savedPacketStatus = sessionStorage.getItem("packet-vault-status");
-      if (savedPacketStatus !== null && savedPacketStatus !== undefined) setPacketStatusFilter(savedPacketStatus as PacketStatusFilter);
       const savedPacketVendor = sessionStorage.getItem("packet-vault-vendor");
       setPacketVendorFilter(savedPacketVendor && savedPacketVendor !== "" ? savedPacketVendor : null);
-      const savedPacketSow = sessionStorage.getItem("packet-vault-sow");
-      setPacketSowMonth((savedPacketSow && /^\d{4}-\d{2}$/.test(savedPacketSow)) ? savedPacketSow : null);
       const savedPacketSort = sessionStorage.getItem("packet-vault-sort");
       if (savedPacketSort) {
         const parsed = JSON.parse(savedPacketSort) as { sortBy?: string; sortDirection?: string };
@@ -347,14 +339,12 @@ export function VaultPacketWingProvider({
     if (typeof window === "undefined") return;
     try {
       sessionStorage.setItem("packet-vault-search", packetSearchQuery);
-      sessionStorage.setItem("packet-vault-status", packetStatusFilter);
       sessionStorage.setItem("packet-vault-vendor", packetVendorFilter ?? "");
-      sessionStorage.setItem("packet-vault-sow", packetSowMonth ?? "");
       sessionStorage.setItem("packet-vault-sort", JSON.stringify({ sortBy: packetSortBy, sortDirection: packetSortDirection }));
     } catch {
       /* ignore */
     }
-  }, [packetSearchQuery, packetStatusFilter, packetVendorFilter, packetSowMonth, packetSortBy, packetSortDirection]);
+  }, [packetSearchQuery, packetVendorFilter, packetSortBy, packetSortDirection]);
 
   const value: VaultPacketWingContextValue = {
     viewMode,
@@ -363,28 +353,22 @@ export function VaultPacketWingProvider({
     scrollContainerRef,
     packetSearchQuery,
     setPacketSearchQuery,
-    packetStatusFilter,
-    setPacketStatusFilter,
     packetVendorFilter,
     setPacketVendorFilter,
     packetSortBy,
     setPacketSortBy,
     packetSortDirection,
     setPacketSortDirection,
-    packetSowMonth,
-    setPacketSowMonth,
     packetHasDefault,
     setPacketHasDefault,
-    packetStatusChips,
-    setPacketStatusChips,
     packetVendorChips,
     setPacketVendorChips,
     packetPlantCategoryChips,
     setPacketPlantCategoryChips,
+    packetPlantNameOptions,
+    setPacketPlantNameOptions,
     packetAvailableTags,
     setPacketAvailableTags,
-    packetSeedTypeChips,
-    setPacketSeedTypeChips,
     packetRefineChips,
     setPacketRefineChips,
     filteredPacketIds,
@@ -395,6 +379,8 @@ export function VaultPacketWingProvider({
     setRefineByOpen,
     refineBySection,
     setRefineBySection,
+    moreFiltersOpen,
+    setMoreFiltersOpen,
     hasPacketActiveFilters,
     clearPacketFilters,
     batchSelectMode,
@@ -479,12 +465,13 @@ export function VaultPacketWingToolbar() {
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                 {[
                   packetSearchQuery.trim() ? 1 : 0,
-                  ctx.packetStatusFilter !== "" ? 1 : 0,
                   ctx.packetVendorFilter !== null ? 1 : 0,
-                  ctx.packetSowMonth != null && /^\d{4}-\d{2}$/.test(ctx.packetSowMonth) ? 1 : 0,
                   ctx.vaultFilters.filters.plantCategory !== null ? 1 : 0,
+                  ctx.vaultFilters.filters.plantNames.length > 0 ? 1 : 0,
+                  ctx.vaultFilters.filters.plantMonth !== null ? 1 : 0,
+                  ctx.vaultFilters.filters.invHasPackets ? 1 : 0,
+                  ctx.vaultFilters.filters.invPrevOwned ? 1 : 0,
                   ctx.vaultFilters.filters.tags.length,
-                  ctx.vaultFilters.filters.seedTypes.length,
                   ctx.vaultFilters.filters.sun !== null ? 1 : 0,
                   ctx.vaultFilters.filters.spacing !== null ? 1 : 0,
                   ctx.vaultFilters.filters.germination !== null ? 1 : 0,
@@ -548,11 +535,9 @@ export function VaultPacketWingContent() {
     refetchTrigger,
     scrollContainerRef,
     packetSearchQuery,
-    packetStatusFilter,
     packetVendorFilter,
     packetSortBy,
     packetSortDirection,
-    packetSowMonth,
     batchSelectMode,
     selectedPacketIds,
     setSelectedPacketIds,
@@ -560,11 +545,10 @@ export function VaultPacketWingContent() {
     setFilteredPacketCount,
     onEmptyStateChange,
     vaultFilters,
-    setPacketStatusChips,
     setPacketVendorChips,
     setPacketPlantCategoryChips,
+    setPacketPlantNameOptions,
     setPacketAvailableTags,
-    setPacketSeedTypeChips,
     setPacketRefineChips,
     onOpenScanner,
     onAddFirst,
@@ -591,26 +575,17 @@ export function VaultPacketWingContent() {
 
   return (
     <div className="relative z-10 pt-2">
-      {packetSowMonth && /^\d{4}-\d{2}$/.test(packetSowMonth) && (
-        <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-emerald-800">
-            Plant this month ({(() => {
-              const [, m] = packetSowMonth.split("-").map(Number);
-              return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
-            })()})
-          </span>
-          <button type="button" onClick={() => ctx.setPacketSowMonth(null)} className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</button>
-        </div>
-      )}
       <PacketVaultLazy
         refetchTrigger={refetchTrigger}
         scrollContainerRef={scrollContainerRef}
         searchQuery={packetSearchQuery}
-        statusFilter={packetStatusFilter}
         vendorFilter={packetVendorFilter}
         sortBy={packetSortBy}
         sortDirection={packetSortDirection}
-        sowMonth={packetSowMonth}
+        plantMonthFilter={vaultFilters!.filters.plantMonth}
+        plantNameFilters={vaultFilters!.filters.plantNames}
+        invHasPackets={vaultFilters!.filters.invHasPackets}
+        invPrevOwned={vaultFilters!.filters.invPrevOwned}
         batchSelectMode={batchSelectMode}
         selectedPacketIds={selectedPacketIds}
         onTogglePacketSelection={togglePacketSelection}
@@ -621,18 +596,16 @@ export function VaultPacketWingContent() {
         onOpenScanner={onOpenScanner}
         onAddFirst={onAddFirst}
         displayStyle={packetDisplayStyle}
-        onPacketStatusChipsLoaded={setPacketStatusChips}
         onPacketVendorChipsLoaded={setPacketVendorChips}
         plantCategoryFilter={vaultFilters!.filters.plantCategory}
         onPacketPlantCategoryChipsLoaded={setPacketPlantCategoryChips}
+        onPacketPlantNameOptionsLoaded={setPacketPlantNameOptions}
         tagFilters={vaultFilters!.filters.tags}
-        seedTypeFilters={vaultFilters!.filters.seedTypes}
         sunFilter={vaultFilters!.filters.sun}
         spacingFilter={vaultFilters!.filters.spacing}
         germinationFilter={vaultFilters!.filters.germination}
         maturityFilter={vaultFilters!.filters.maturity}
         onPacketTagsLoaded={setPacketAvailableTags}
-        onPacketSeedTypeChipsLoaded={setPacketSeedTypeChips}
         onPacketRefineChipsLoaded={setPacketRefineChips}
         onClearFilters={ctx.clearPacketFilters}
       />
@@ -646,28 +619,25 @@ export function VaultPacketWingRefineModal() {
     setRefineByOpen,
     refineBySection,
     setRefineBySection,
+    moreFiltersOpen,
+    setMoreFiltersOpen,
     hasPacketActiveFilters,
     clearPacketFilters,
     packetSortBy,
     setPacketSortBy,
     packetSortDirection,
     setPacketSortDirection,
-    packetStatusFilter,
-    setPacketStatusFilter,
-    packetStatusChips,
     packetVendorFilter,
     setPacketVendorFilter,
     packetVendorChips,
-    packetSowMonth,
-    setPacketSowMonth,
+    packetPlantNameOptions,
     packetAvailableTags,
-    packetSeedTypeChips,
     packetPlantCategoryChips,
+    packetRefineChips,
     vaultFilters,
     packetHasDefault,
     setPacketHasDefault,
     filteredPacketCount,
-    router,
   } = ctx ?? {};
 
   const closeModal = useCallback(() => {
@@ -676,27 +646,17 @@ export function VaultPacketWingRefineModal() {
     setRefineBySection(null);
   }, [setRefineByOpen, setRefineBySection]);
 
-  const statusOptions = (packetStatusChips?.length ?? 0) > 0
-    ? (packetStatusChips ?? [])
-    : [
-        { value: "" as PacketStatusFilter, label: "All", count: 0 },
-        { value: "vault" as PacketStatusFilter, label: "In Storage", count: 0 },
-        { value: "active" as PacketStatusFilter, label: "Active", count: 0 },
-        { value: "low_inventory" as PacketStatusFilter, label: "Low Inventory", count: 0 },
-        { value: "archived" as PacketStatusFilter, label: "Archived", count: 0 },
-      ];
-
   const saveAsDefault = useCallback(() => {
     if (!setPacketHasDefault) return;
     saveFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets, {
-      status: packetStatusFilter,
       vendor: packetVendorFilter,
-      sowMonth: packetSowMonth,
       sortBy: packetSortBy,
       sortDirection: packetSortDirection,
     });
     setPacketHasDefault(true);
-  }, [packetStatusFilter, packetVendorFilter, packetSowMonth, packetSortBy, packetSortDirection, setPacketHasDefault]);
+  }, [packetVendorFilter, packetSortBy, packetSortDirection, setPacketHasDefault]);
+
+  const currentMonth = new Date().getMonth() + 1;
 
   if (!ctx || !ctx.refineByOpen) return null;
 
@@ -797,181 +757,226 @@ export function VaultPacketWingRefineModal() {
               </div>
             )}
           </div>
-          {/* Status */}
+          {/* Plant Name */}
           <div className="border-b border-black/5">
             <button
               type="button"
-              onClick={() => setRefineBySection?.((s) => (s === "vault" ? null : "vault"))}
+              onClick={() => setRefineBySection?.((s) => (s === "plantName" ? null : "plantName"))}
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-              aria-expanded={refineBySection === "vault"}
+              aria-expanded={refineBySection === "plantName"}
             >
-              <span>Packet Inventory</span>
-              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▼" : "▸"}</span>
+              <span>Plant Name</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantName" ? "▼" : "▸"}</span>
             </button>
-            {refineBySection === "vault" && (
-              <div className="px-4 pb-3 pt-0 space-y-0.5">
-                {statusOptions.map(({ value, label, count }) => {
-                  const selected = packetStatusFilter === value;
+            {refineBySection === "plantName" && (
+              <div className="px-4 pb-3 pt-0">
+                <SearchableMultiSelect
+                  options={(packetPlantNameOptions ?? []).map((name) => ({ id: name, label: name }))}
+                  selectedIds={new Set(vaultFilters?.filters.plantNames ?? [])}
+                  onChange={(set) => vaultFilters?.setPlantNames([...set])}
+                  label="Plant Name"
+                  dropdownZIndex={120}
+                />
+              </div>
+            )}
+          </div>
+          {/* Plant in [Month] */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection?.((s) => (s === "plantMonth" ? null : "plantMonth"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "plantMonth"}
+            >
+              <span>{vaultFilters?.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in [Month]"}</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantMonth" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "plantMonth" && (
+              <div className="px-4 pb-3 pt-0 max-h-[260px] overflow-y-auto space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => vaultFilters?.setPlantMonth(null)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.plantMonth == null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                >
+                  Any month
+                </button>
+                {MONTH_NAMES.map((monthName, i) => {
+                  const monthNum = i + 1;
+                  const selected = vaultFilters?.filters.plantMonth === monthNum;
+                  const isCurrent = monthNum === currentMonth;
                   return (
                     <button
-                      key={value || "all"}
+                      key={monthNum}
                       type="button"
-                      onClick={() => setPacketStatusFilter?.(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                      onClick={() => vaultFilters?.setPlantMonth(monthNum)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : isCurrent ? "text-emerald-700 hover:bg-black/5" : "text-black/80 hover:bg-black/5"}`}
                     >
-                      {label} ({count})
+                      {monthName}{isCurrent ? " (this month)" : ""}
                     </button>
                   );
                 })}
               </div>
             )}
           </div>
-          {/* Vendor */}
+          {/* Inventory (2 toggles) */}
           <div className="border-b border-black/5">
             <button
               type="button"
-              onClick={() => setRefineBySection?.((s) => (s === "packetVendor" ? null : "packetVendor"))}
+              onClick={() => setRefineBySection?.((s) => (s === "inventory" ? null : "inventory"))}
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-              aria-expanded={refineBySection === "packetVendor"}
+              aria-expanded={refineBySection === "inventory"}
             >
-              <span>Vendor</span>
-              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
+              <span>Inventory</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "inventory" ? "▼" : "▸"}</span>
             </button>
-            {refineBySection === "packetVendor" && (
-              <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => setPacketVendorFilter?.(null)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                >
-                  All
-                </button>
-                {(packetVendorChips ?? []).map(({ value, count }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setPacketVendorFilter?.(value)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    {value} ({count})
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* Sow Month */}
-          <div className="border-b border-black/5">
-            <button
-              type="button"
-              onClick={() => setRefineBySection?.((s) => (s === "packetSow" ? null : "packetSow"))}
-              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-              aria-expanded={refineBySection === "packetSow"}
-            >
-              <span>Plant this month</span>
-              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetSow" ? "▼" : "▸"}</span>
-            </button>
-            {refineBySection === "packetSow" && (
+            {refineBySection === "inventory" && (
               <div className="px-4 pb-3 pt-0 space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => { setPacketSowMonth?.(null); router?.replace("/vault?tab=list", { scroll: false }); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!packetSowMonth ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-                    setPacketSowMonth?.(sow);
-                    router?.replace(`/vault?tab=list&sow=${sow}`, { scroll: false });
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${
-                    packetSowMonth && /^\d{4}-\d{2}$/.test(packetSowMonth) && packetSowMonth === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-                      ? "bg-emerald/10 text-emerald-800 font-medium"
-                      : "text-black/80 hover:bg-black/5"
-                  }`}
-                >
-                  Plant Now
-                </button>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input
+                    type="checkbox"
+                    checked={vaultFilters?.filters.invHasPackets ?? false}
+                    onChange={() => vaultFilters?.toggleInventory("hasPackets")}
+                    className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                    aria-label="Has packets in inventory"
+                  />
+                  <span className="text-sm text-black/80">Has packets in inventory</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input
+                    type="checkbox"
+                    checked={vaultFilters?.filters.invPrevOwned ?? false}
+                    onChange={() => vaultFilters?.toggleInventory("prevOwned")}
+                    className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                    aria-label="Previously owned"
+                  />
+                  <span className="text-sm text-black/80">Previously owned</span>
+                </label>
               </div>
             )}
           </div>
-          {/* Tags */}
-          {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection?.((s) => (s === "tags" ? null : "tags"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "tags"}
-              >
-                <span>Tags</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
-              </button>
-              {refineBySection === "tags" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).map((tag) => {
-                    const checked = vaultFilters?.filters.tags.includes(tag);
-                    return (
-                      <label
-                        key={tag}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => vaultFilters?.toggleTagFilter(tag)}
-                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                          aria-label={`Filter by ${tag}`}
-                        />
-                        <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>
-                          {tag}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-          {/* Seed Type */}
-          {(packetSeedTypeChips ?? []).length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection?.((s) => (s === "seedType" ? null : "seedType"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "seedType"}
-              >
-                <span>Seed Type</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "seedType" ? "▼" : "▸"}</span>
-              </button>
-              {refineBySection === "seedType" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  {(packetSeedTypeChips ?? []).map(({ value, count }) => {
-                    const checked = vaultFilters?.filters.seedTypes.includes(value);
-                    return (
-                      <label
-                        key={value}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => vaultFilters?.toggleSeedTypeFilter(value)}
-                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                          aria-label={`Filter by ${value}`}
-                        />
-                        <span className="text-sm text-black/80">{value} ({count})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {/* More Filters */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setMoreFiltersOpen?.(!moreFiltersOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={moreFiltersOpen}
+            >
+              <span>More Filters</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{moreFiltersOpen ? "▼" : "▸"}</span>
+            </button>
+            {moreFiltersOpen && (
+              <div>
+                {/* Sun */}
+                {(packetRefineChips?.sun ?? []).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
+                      <span>Sun</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "sun" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters?.setSun(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.sun === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {(packetRefineChips?.sun ?? []).map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters?.setSun(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.sun === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Spacing */}
+                {(packetRefineChips?.spacing ?? []).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
+                      <span>Spacing</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "spacing" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters?.setSpacing(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.spacing === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {(packetRefineChips?.spacing ?? []).map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters?.setSpacing(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters?.filters.spacing === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Germination */}
+                {(packetRefineChips?.germination ?? []).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
+                      <span>Germination</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "germination" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters?.setGermination(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.germination === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {(packetRefineChips?.germination ?? []).map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters?.setGermination(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters?.filters.germination === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Maturity */}
+                {(packetRefineChips?.maturity ?? []).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
+                      <span>Maturity</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "maturity" && (
+                      <div className="px-6 pb-3 pt-0 space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters?.setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.maturity === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {(packetRefineChips?.maturity ?? []).map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters?.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Vendor */}
+                {(packetVendorChips ?? []).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "packetVendor" ? null : "packetVendor"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetVendor"}>
+                      <span>Vendor</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "packetVendor" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => setPacketVendorFilter?.(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {(packetVendorChips ?? []).map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => setPacketVendorFilter?.(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Tags */}
+                {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "tags" ? null : "tags"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "tags"}>
+                      <span>Tags</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "tags" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).map((tag) => {
+                          const checked = vaultFilters?.filters.tags.includes(tag);
+                          return (
+                            <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                              <input type="checkbox" checked={checked} onChange={() => vaultFilters?.toggleTagFilter(tag)} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label={`Filter by ${tag}`} />
+                              <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>{tag}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">

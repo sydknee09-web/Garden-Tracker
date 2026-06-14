@@ -8,9 +8,11 @@ import {
   hasFilterDefault,
 } from "@/lib/filterDefaults";
 
+/** Inventory/lifecycle toggle keys (Phase 2b). Library uses all 4; Packets uses hasPackets + prevOwned; Garden uses none. */
+export type InventoryToggleKey = "growing" | "hasPackets" | "prevGrown" | "prevOwned";
+
 /** Common filter values shared by Garden and Vault. */
 export type GardenFilterValues = {
-  category: string | null;
   variety: string | null;
   /** Canonical plant_profiles.plant_category (Vegetable, Fruit, Herb, Flower, Ornamental, Houseplant). Primary-chip filter dim (Sprint 11.5). */
   plantCategory: string | null;
@@ -19,25 +21,28 @@ export type GardenFilterValues = {
   germination: string | null;
   maturity: string | null;
   tags: string[];
+  /** Plant-in-month picker (1–12). null = inactive (Phase 2b). Replaces old Season + plant-this-month. */
+  plantMonth: number | null;
+  /** Plant-name multi-select (Phase 2b). Empty = inactive. OR semantics. */
+  plantNames: string[];
 };
 
-/** Vault extends Garden with status, vendor, packetCount, seedTypes, season, method. */
+/** Vault extends Garden with vendor, packetCount, method, and inventory toggles. */
 export type VaultFilterValues = GardenFilterValues & {
-  status: string;
   vendor: string | null;
   packetCount: string | null;
-  /** Seed type categories (Vegetable, Herb, Flower, etc.) — separate from tags (F1, Heirloom, etc.). */
-  seedTypes: string[];
-  /** Planting season (Spring | Summer | Fall | Winter) from planting_seasons_tags. */
-  season: string | null;
   /** Planting method (indoors | outdoors) from the frost-offset structured fields. */
   method: string | null;
+  /** Inventory/lifecycle toggles (Phase 2b — replace the single Status dropdown). */
+  invGrowing: boolean;
+  invHasPackets: boolean;
+  invPrevGrown: boolean;
+  invPrevOwned: boolean;
 };
 
 export type FilterSchema = "garden" | "vault";
 
 const EMPTY_GARDEN: GardenFilterValues = {
-  category: null,
   variety: null,
   plantCategory: null,
   sun: null,
@@ -45,21 +50,23 @@ const EMPTY_GARDEN: GardenFilterValues = {
   germination: null,
   maturity: null,
   tags: [],
+  plantMonth: null,
+  plantNames: [],
 };
 
 const EMPTY_VAULT: VaultFilterValues = {
   ...EMPTY_GARDEN,
-  status: "",
   vendor: null,
   packetCount: null,
-  seedTypes: [],
-  season: null,
   method: null,
+  invGrowing: false,
+  invHasPackets: false,
+  invPrevGrown: false,
+  invPrevOwned: false,
 };
 
 function countActiveGardenFilters(f: GardenFilterValues): number {
   return [
-    f.category !== null,
     f.variety !== null,
     f.plantCategory !== null,
     f.sun !== null,
@@ -67,13 +74,23 @@ function countActiveGardenFilters(f: GardenFilterValues): number {
     f.germination !== null,
     f.maturity !== null,
     f.tags.length > 0,
+    f.plantMonth !== null,
+    f.plantNames.length > 0,
   ].filter(Boolean).length;
 }
 
 function countActiveVaultFilters(f: VaultFilterValues): number {
   return (
     countActiveGardenFilters(f) +
-    [f.status !== "", f.vendor !== null, f.packetCount !== null, f.seedTypes.length > 0, f.season !== null, f.method !== null].filter(Boolean).length
+    [
+      f.vendor !== null,
+      f.packetCount !== null,
+      f.method !== null,
+      f.invGrowing,
+      f.invHasPackets,
+      f.invPrevGrown,
+      f.invPrevOwned,
+    ].filter(Boolean).length
   );
 }
 
@@ -89,7 +106,6 @@ function normalizeGardenLoaded(raw: unknown): GardenFilterValues | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   return {
-    category: typeof o.category === "string" ? o.category : null,
     variety: typeof o.variety === "string" ? o.variety : null,
     plantCategory: typeof o.plantCategory === "string" ? o.plantCategory : null,
     sun: typeof o.sun === "string" ? o.sun : null,
@@ -97,6 +113,8 @@ function normalizeGardenLoaded(raw: unknown): GardenFilterValues | null {
     germination: typeof o.germination === "string" ? o.germination : null,
     maturity: typeof o.maturity === "string" ? o.maturity : null,
     tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === "string") : [],
+    plantMonth: typeof o.plantMonth === "number" && o.plantMonth >= 1 && o.plantMonth <= 12 ? o.plantMonth : null,
+    plantNames: Array.isArray(o.plantNames) ? o.plantNames.filter((t): t is string => typeof t === "string") : [],
   };
 }
 
@@ -106,12 +124,13 @@ function normalizeVaultLoaded(raw: unknown): VaultFilterValues | null {
   const o = raw as Record<string, unknown>;
   return {
     ...garden,
-    status: typeof o.status === "string" ? o.status : "",
     vendor: typeof o.vendor === "string" ? o.vendor : null,
     packetCount: typeof o.packetCount === "string" ? o.packetCount : null,
-    seedTypes: Array.isArray(o.seedTypes) ? o.seedTypes.filter((t): t is string => typeof t === "string") : [],
-    season: typeof o.season === "string" ? o.season : null,
     method: typeof o.method === "string" ? o.method : null,
+    invGrowing: o.invGrowing === true,
+    invHasPackets: o.invHasPackets === true,
+    invPrevGrown: o.invPrevGrown === true,
+    invPrevOwned: o.invPrevOwned === true,
   };
 }
 
@@ -137,7 +156,6 @@ export type UseFilterStateOptions<T extends FilterSchema> = {
 export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
   ? {
       filters: GardenFilterValues;
-      setCategory: (v: string | null) => void;
       setVariety: (v: string | null) => void;
       setPlantCategory: (v: string | null) => void;
       setSun: (v: string | null) => void;
@@ -146,6 +164,8 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       setMaturity: (v: string | null) => void;
       setTags: (v: string[] | ((prev: string[]) => string[])) => void;
       toggleTagFilter: (tag: string) => void;
+      setPlantMonth: (v: number | null) => void;
+      setPlantNames: (v: string[] | ((prev: string[]) => string[])) => void;
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
@@ -156,7 +176,6 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
     }
   : {
       filters: VaultFilterValues;
-      setCategory: (v: string | null) => void;
       setVariety: (v: string | null) => void;
       setPlantCategory: (v: string | null) => void;
       setSun: (v: string | null) => void;
@@ -164,14 +183,13 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       setGermination: (v: string | null) => void;
       setMaturity: (v: string | null) => void;
       setTags: (v: string[] | ((prev: string[]) => string[])) => void;
-      setStatus: (v: string) => void;
       setVendor: (v: string | null) => void;
       setPacketCount: (v: string | null) => void;
-      setSeason: (v: string | null) => void;
       setMethod: (v: string | null) => void;
       toggleTagFilter: (tag: string) => void;
-      toggleSeedTypeFilter: (seedType: string) => void;
-      setSeedTypes: (v: string[] | ((prev: string[]) => string[])) => void;
+      setPlantMonth: (v: number | null) => void;
+      setPlantNames: (v: string[] | ((prev: string[]) => string[])) => void;
+      toggleInventory: (key: InventoryToggleKey) => void;
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
@@ -229,29 +247,6 @@ export function useFilterState<T extends FilterSchema>(
     }));
   }, []);
 
-  const toggleSeedTypeFilter = useCallback((seedType: string) => {
-    setFilters((prev) => {
-      if (schema !== "vault") return prev;
-      const vault = prev as VaultFilterValues;
-      const next = vault.seedTypes.includes(seedType)
-        ? vault.seedTypes.filter((t) => t !== seedType)
-        : [...vault.seedTypes, seedType];
-      return { ...prev, seedTypes: next };
-    });
-  }, [schema]);
-
-  const setSeedTypes = useCallback((v: string[] | ((prev: string[]) => string[])) => {
-    setFilters((prev) => {
-      if (schema !== "vault") return prev;
-      const vault = prev as VaultFilterValues;
-      const next = typeof v === "function" ? v(vault.seedTypes) : v;
-      return { ...prev, seedTypes: next };
-    });
-  }, [schema]);
-
-  const setCategory = useCallback((v: string | null) => {
-    setFilters((prev) => ({ ...prev, category: v }));
-  }, []);
   const setVariety = useCallback((v: string | null) => {
     setFilters((prev) => ({ ...prev, variety: v }));
   }, []);
@@ -276,21 +271,32 @@ export function useFilterState<T extends FilterSchema>(
       tags: typeof v === "function" ? v(prev.tags) : v,
     }));
   }, []);
+  const setPlantMonth = useCallback((v: number | null) => {
+    setFilters((prev) => ({ ...prev, plantMonth: v }));
+  }, []);
+  const setPlantNames = useCallback((v: string[] | ((prev: string[]) => string[])) => {
+    setFilters((prev) => ({
+      ...prev,
+      plantNames: typeof v === "function" ? v(prev.plantNames) : v,
+    }));
+  }, []);
 
-  const setStatus = useCallback((v: string) => {
-    setFilters((prev) => (schema === "vault" ? { ...prev, status: v } : prev));
-  }, [schema]);
   const setVendor = useCallback((v: string | null) => {
     setFilters((prev) => (schema === "vault" ? { ...prev, vendor: v } : prev));
   }, [schema]);
   const setPacketCount = useCallback((v: string | null) => {
     setFilters((prev) => (schema === "vault" ? { ...prev, packetCount: v } : prev));
   }, [schema]);
-  const setSeason = useCallback((v: string | null) => {
-    setFilters((prev) => (schema === "vault" ? { ...prev, season: v } : prev));
-  }, [schema]);
   const setMethod = useCallback((v: string | null) => {
     setFilters((prev) => (schema === "vault" ? { ...prev, method: v } : prev));
+  }, [schema]);
+  const toggleInventory = useCallback((key: InventoryToggleKey) => {
+    setFilters((prev) => {
+      if (schema !== "vault") return prev;
+      const vault = prev as VaultFilterValues;
+      const field = key === "growing" ? "invGrowing" : key === "hasPackets" ? "invHasPackets" : key === "prevGrown" ? "invPrevGrown" : "invPrevOwned";
+      return { ...vault, [field]: !vault[field] };
+    });
   }, [schema]);
 
   const baseHasActive = schema === "garden"
@@ -311,7 +317,6 @@ export function useFilterState<T extends FilterSchema>(
 
   return {
     filters: filters as T extends "garden" ? GardenFilterValues : VaultFilterValues,
-    setCategory,
     setVariety,
     setPlantCategory,
     setSun,
@@ -319,7 +324,9 @@ export function useFilterState<T extends FilterSchema>(
     setGermination,
     setMaturity,
     setTags,
-    ...(schema === "vault" ? { setStatus, setVendor, setPacketCount, setSeason, setMethod, toggleSeedTypeFilter, setSeedTypes } : {}),
+    setPlantMonth,
+    setPlantNames,
+    ...(schema === "vault" ? { setVendor, setPacketCount, setMethod, toggleInventory } : {}),
     toggleTagFilter,
     clearAllFilters,
     hasActiveFilters,

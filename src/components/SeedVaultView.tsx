@@ -51,8 +51,8 @@ import { StarRating } from "@/components/StarRating";
 import { PlantImage } from "@/components/PlantImage";
 import { GridSkeleton } from "@/components/VaultSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
-import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
-import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
+import type { PlantProfileDisplay, Volume, VaultSortBy } from "@/types/vault";
+import { isSeedTypeTag } from "@/constants/seedTypes";
 import { buildPlantCategoryChips } from "@/constants/plantCategories";
 
 /** Unified vault card item sourced from plant_profiles. */
@@ -105,6 +105,8 @@ export type VaultCardItem = {
   best_rating?: number | null;
   /** Canonical plant_profiles.plant_category (Vegetable | Fruit | Herb | Flower | Ornamental | Houseplant). Primary-chip filter dim (Sprint 11.5). */
   plant_category?: string | null;
+  /** True if the profile has ≥1 archived (status≠growing) grow_instance — "Previously grown" inventory toggle (Phase 2b). */
+  ever_grown?: boolean;
 };
 
 /** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
@@ -137,7 +139,7 @@ function getThumbnailUrl(seed: VaultCardItem): string | null {
 const HERO_PENDING_TIMEOUT_MS = 30000;
 export type GridSortBy = "name" | "dateAdded";
 /** Re-export for consumers that import from SeedVaultView. */
-export type { StatusFilter, VaultSortBy };
+export type { VaultSortBy };
 
 const VOLUME_LABELS: Record<string, string> = {
   full: "Full",
@@ -193,9 +195,7 @@ function SortArrowIcon({ dir }: { dir: "asc" | "desc" | "off" }) {
 export function SeedVaultView({
   refetchTrigger = 0,
   searchQuery = "",
-  statusFilter = "",
   tagFilters = [],
-  seedTypeFilters = [],
   onOpenScanner,
   onAddFirst,
   onTagsLoaded,
@@ -207,25 +207,25 @@ export function SeedVaultView({
   onPendingHeroCountChange,
   availablePlantTypes = [],
   onPlantTypeChange,
-  plantNowFilter = false,
-  /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
-  sowMonth = null,
+  plantMonthFilter = null,
+  plantNameFilters = [],
+  invGrowing = false,
+  invHasPackets = false,
+  invPrevGrown = false,
+  invPrevOwned = false,
   gridDisplayStyle = "photo" as const,
-  onSeedTypeChipsLoaded,
   plantCategoryFilter = null,
   onPlantCategoryChipsLoaded,
+  onPlantNameOptionsLoaded,
   varietyFilter = null,
   vendorFilter = null,
-  seasonFilter = null,
   methodFilter = null,
   sunFilter = null,
   spacingFilter = null,
   germinationFilter = null,
   maturityFilter = null,
   packetCountFilter = null,
-  onSowingMonthChipsLoaded,
   onRefineChipsLoaded,
-  onVaultStatusChipsLoaded,
   hideArchivedProfiles = false,
   onEmptyStateChange,
   sortBy: sortByProp = null,
@@ -237,11 +237,8 @@ export function SeedVaultView({
   /** Optional ref to scroll container for pull-to-refresh (vault page). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
   searchQuery?: string;
-  statusFilter?: StatusFilter;
   /** Tags that characterize the plant (F1, Heirloom, Heat Lover, etc.) — excludes seed types. */
   tagFilters?: TagFilter;
-  /** Seed type categories (Vegetable, Herb, Flower, etc.) — separate from tags. */
-  seedTypeFilters?: string[];
   onOpenScanner?: () => void;
   /** When vault is empty, optional callback for "Add your first packet" CTA. */
   onAddFirst?: () => void;
@@ -259,22 +256,26 @@ export function SeedVaultView({
   availablePlantTypes?: string[];
   /** Called when user changes plant type in list view; parent should update plant_profiles.name and refetch. */
   onPlantTypeChange?: (profileId: string, newName: string) => void;
-  plantNowFilter?: boolean;
-  /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
-  sowMonth?: string | null;
+  /** Plant-in-month filter (1–12). null = inactive (Phase 2b). */
+  plantMonthFilter?: number | null;
+  /** Plant-name multi-select (Phase 2b). Empty = inactive; OR semantics. */
+  plantNameFilters?: string[];
+  /** Inventory toggles (Phase 2b). OR within the inventory dimension. */
+  invGrowing?: boolean;
+  invHasPackets?: boolean;
+  invPrevGrown?: boolean;
+  invPrevOwned?: boolean;
   /** "photo" = 2-col gallery cards, "list" = condensed rows (matches peer surfaces). */
   gridDisplayStyle?: "photo" | "list";
-  /** Called when seed type chips (Vegetable, Herb, Flower, etc. with counts) are computed, for Refine By panel. */
-  onSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   /** Primary-tier canonical plant_category filter (Sprint 11.5); single-select, null = all. */
   plantCategoryFilter?: string | null;
   /** Called when plant_category chips (count-gated, canonical order) are computed, for the primary chip row. */
   onPlantCategoryChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  /** Called when distinct plant names are computed, for the Plant Name multi-select. */
+  onPlantNameOptionsLoaded?: (names: string[]) => void;
   /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
   varietyFilter?: string | null;
   vendorFilter?: string | null;
-  /** Planting season refine (Spring | Summer | Fall | Winter), from planting_seasons_tags. */
-  seasonFilter?: string | null;
   /** Planting method refine ("indoors" | "outdoors"), from the frost-offset structured fields. */
   methodFilter?: string | null;
   sunFilter?: string | null;
@@ -282,8 +283,6 @@ export function SeedVaultView({
   germinationFilter?: string | null;
   maturityFilter?: string | null;
   packetCountFilter?: string | null;
-  /** Called when sowing month chips (counts per month) are computed, for Refine By panel. */
-  onSowingMonthChipsLoaded?: (chips: { month: number; monthName: string; count: number }[]) => void;
   /** Called when refine chips (counts per dimension) are computed, for Refine By panel. */
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
@@ -293,11 +292,8 @@ export function SeedVaultView({
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
-    season: { value: string; count: number }[];
     method: { value: string; count: number }[];
   }) => void;
-  /** Called when vault status counts (All, In storage, Active, Low inventory, Archived) are computed, for Refine By panel. */
-  onVaultStatusChipsLoaded?: (chips: { value: StatusFilter; label: string; count: number }[]) => void;
   /** When true, exclude plant profiles with no packets (archived) from list/table. */
   hideArchivedProfiles?: boolean;
   /** Sort from Refine By (vault page). When set, overrides internal grid/list sort. */
@@ -383,14 +379,6 @@ export function SeedVaultView({
     router.push(`/library/${profileId}`);
   }
 
-  const sowMonthIndex = useMemo(() => {
-    if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
-      const [, m] = sowMonth.split("-").map(Number);
-      return (m ?? 1) - 1;
-    }
-    return new Date().getMonth();
-  }, [sowMonth]);
-
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
     if (days < 60) return "<60";
@@ -404,8 +392,19 @@ export function SeedVaultView({
   };
 
   const filteredSeeds = useMemo(() => {
+    const anyInv = !!(invGrowing || invHasPackets || invPrevGrown || invPrevOwned);
     return seeds.filter((s) => {
-      if (hideArchivedProfiles && statusFilter !== "archived" && (s.packet_count ?? 0) <= 0) return false;
+      if (hideArchivedProfiles && !anyInv && (s.packet_count ?? 0) <= 0) return false;
+      if (anyInv) {
+        const st = (s.status ?? "").toLowerCase();
+        const matches =
+          (invGrowing && st === "active") ||
+          (invHasPackets && (s.packet_count ?? 0) > 0) ||
+          (invPrevGrown && s.ever_grown === true) ||
+          (invPrevOwned && (s.packet_count ?? 0) === 0 && (st === "out_of_stock" || st === "archived"));
+        if (!matches) return false;
+      }
+      if (plantNameFilters && plantNameFilters.length > 0 && !plantNameFilters.includes(s.name)) return false;
       if (varietyFilter != null && varietyFilter !== "") {
         const v = (s.variety ?? "").trim();
         if (v !== varietyFilter) return false;
@@ -434,10 +433,7 @@ export function SeedVaultView({
         const n = s.packet_count ?? 0;
         if (packetCountRange(n) !== packetCountFilter) return false;
       }
-      if (plantNowFilter && !isProfilePlantableInMonth(s, sowMonthIndex)) return false;
-      if (seasonFilter != null && seasonFilter !== "") {
-        if (!(s.planting_seasons_tags ?? []).includes(seasonFilter)) return false;
-      }
+      if (plantMonthFilter != null && !isProfilePlantableInMonth(s, plantMonthFilter - 1)) return false;
       if (methodFilter === "indoors" && s.indoor_start_weeks_before_frost == null) return false;
       if (methodFilter === "outdoors" && s.outdoor_plant_weeks_after_frost == null) return false;
       if (plantCategoryFilter != null && plantCategoryFilter !== "") {
@@ -447,22 +443,6 @@ export function SeedVaultView({
       if (selectedOwnerFilter && s.owner_user_id !== selectedOwnerFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
         return false;
-      if (statusFilter === "vault") {
-        const st = (s.status ?? "").toLowerCase();
-        if ((s.packet_count ?? 0) <= 0) return false;
-        if (st === "out_of_stock" || st === "archived") return false;
-      }
-      if (statusFilter === "active") {
-        const st = (s.status ?? "").toLowerCase();
-        if (st !== "active" && st !== "active on hillside") return false;
-      }
-      if (statusFilter === "low_inventory") {
-        if ((s.packet_count ?? 0) > 1) return false;
-      }
-      if (statusFilter === "archived") {
-        const st = (s.status ?? "").toLowerCase();
-        if (st !== "out_of_stock" && st !== "archived") return false;
-      }
       if (tagFilters.length > 0) {
         const packetTagFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
         if (packetTagFilters.length > 0) {
@@ -470,28 +450,11 @@ export function SeedVaultView({
           if (!packetTagFilters.some((t) => seedTags.includes(t))) return false;
         }
       }
-      if (seedTypeFilters.length > 0) {
-        const effective = getEffectiveSeedTypes(s.tags, s.name);
-        if (!seedTypeFilters.some((t) => effective.includes(t))) return false;
-      }
       return true;
     });
-  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantCategoryFilter, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, seasonFilter, methodFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, tagFilters, plantCategoryFilter, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, methodFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantMonthFilter, plantNameFilters, invGrowing, invHasPackets, invPrevGrown, invPrevOwned]);
 
   const plantCategoryChips = useMemo(() => buildPlantCategoryChips(seeds), [seeds]);
-
-  const seedTypeChips = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of seeds) {
-      const types = getEffectiveSeedTypes(s.tags, s.name);
-      for (const t of types) {
-        map.set(t, (map.get(t) ?? 0) + 1);
-      }
-    }
-    return SEED_TYPE_TAGS.filter((t) => (map.get(t) ?? 0) > 0)
-      .map((value) => ({ value, count: map.get(value) ?? 0 }))
-      .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
-  }, [seeds]);
 
   const refineChips = useMemo(() => {
     const varietyMap = new Map<string, number>();
@@ -501,13 +464,9 @@ export function SeedVaultView({
     const germinationMap = new Map<string, number>();
     const maturityMap = new Map<string, number>();
     const packetCountMap = new Map<string, number>();
-    const seasonMap = new Map<string, number>();
     let indoorsCount = 0;
     let outdoorsCount = 0;
     for (const s of seeds) {
-      for (const season of s.planting_seasons_tags ?? []) {
-        seasonMap.set(season, (seasonMap.get(season) ?? 0) + 1);
-      }
       if (s.indoor_start_weeks_before_frost != null) indoorsCount++;
       if (s.outdoor_plant_weeks_after_frost != null) outdoorsCount++;
       const v = (s.variety ?? "").trim() || "—";
@@ -534,7 +493,6 @@ export function SeedVaultView({
       germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
       maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
       packetCount: ["0", "1", "2+"].filter((k) => packetCountMap.has(k)).map((value) => ({ value, count: packetCountMap.get(value) ?? 0 })),
-      season: ["Spring", "Summer", "Fall", "Winter"].filter((k) => seasonMap.has(k)).map((value) => ({ value, count: seasonMap.get(value) ?? 0 })),
       method: [
         { value: "indoors", count: indoorsCount },
         { value: "outdoors", count: outdoorsCount },
@@ -542,66 +500,14 @@ export function SeedVaultView({
     };
   }, [seeds]);
 
-  /** Vault status counts for Refine By panel: same buckets as status filter (All, In storage, Active, Low inventory, Archived). */
-  const vaultStatusChips = useMemo(() => {
-    // Apply search query to counts so the chip numbers match what "Show results" would return.
-    const searchFiltered = q
-      ? seeds.filter(
-          (s) =>
-            s.name.toLowerCase().includes(q) ||
-            (s.variety && s.variety.toLowerCase().includes(q))
-        )
-      : seeds;
-    const statuses: { value: StatusFilter; label: string }[] = [
-      { value: "", label: "All" },
-      { value: "vault", label: "In storage" },
-      { value: "active", label: "Active" },
-      { value: "low_inventory", label: "Low inventory" },
-      { value: "archived", label: "Archived" },
-    ];
-    return statuses.map(({ value, label }) => {
-      let count: number;
-      if (value === "") {
-        count = searchFiltered.length;
-      } else if (value === "vault") {
-        count = searchFiltered.filter((s) => {
-          const st = (s.status ?? "").toLowerCase();
-          return (s.packet_count ?? 0) > 0 && st !== "out_of_stock" && st !== "archived";
-        }).length;
-      } else if (value === "active") {
-        count = searchFiltered.filter((s) => {
-          const st = (s.status ?? "").toLowerCase();
-          return st === "active" || st === "active on hillside";
-        }).length;
-      } else if (value === "low_inventory") {
-        count = searchFiltered.filter((s) => (s.packet_count ?? 0) <= 1).length;
-      } else {
-        // "archived" bucket: profiles explicitly archived OR marked out_of_stock
-        count = searchFiltered.filter((s) => {
-          const st = (s.status ?? "").toLowerCase();
-          return st === "out_of_stock" || st === "archived";
-        }).length;
-      }
-      return { value, label, count };
-    });
-  }, [seeds, q]);
-
-  const sowingMonthChips = useMemo(() => {
-    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return MONTH_NAMES.map((monthName, monthIndex) => {
-      const count = seeds.filter((s) => isProfilePlantableInMonth(s, monthIndex)).length;
-      return { month: monthIndex + 1, monthName, count };
-    });
-  }, [seeds]);
-
-  useEffect(() => {
-    onSowingMonthChipsLoaded?.(sowingMonthChips);
-  }, [sowingMonthChips, onSowingMonthChipsLoaded]);
-
   const uniquePlantNames = useMemo(
     () => Array.from(new Set(seeds.map((s) => s.name))).sort((a, b) => a.localeCompare(b)),
     [seeds]
   );
+
+  useEffect(() => {
+    onPlantNameOptionsLoaded?.(uniquePlantNames);
+  }, [uniquePlantNames, onPlantNameOptionsLoaded]);
 
   const filteredPlantNames = useMemo(() => {
     if (!plantFilterSearch.trim()) return uniquePlantNames;
@@ -761,11 +667,12 @@ export function SeedVaultView({
         .not("primary_image_path", "is", null)
         .order("created_at", { ascending: true });
       if (!isFamilyView) packetImagesQuery = packetImagesQuery.eq("user_id", user.id);
+      // Phase 2b: load status too (drop the growing-only filter) so we can build both the
+      // active (growing) set and the ever-grown (archived/ended) set for the inventory toggles.
       let growsQuery = supabase
         .from("grow_instances")
-        .select("plant_profile_id")
+        .select("plant_profile_id, status")
         .in("plant_profile_id", profileIds)
-        .eq("status", "growing")
         .is("deleted_at", null);
       if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
 
@@ -821,7 +728,9 @@ export function SeedVaultView({
         if (pid && path?.trim() && !firstPacketImageByProfile.has(pid)) firstPacketImageByProfile.set(pid, path.trim());
       }
 
-      const activeProfileIds = new Set((activeGrows ?? []).map((g: { plant_profile_id: string }) => g.plant_profile_id));
+      const growRows = (activeGrows ?? []) as { plant_profile_id: string; status?: string | null }[];
+      const activeProfileIds = new Set(growRows.filter((g) => g.status === "growing").map((g) => g.plant_profile_id));
+      const everGrownProfileIds = new Set(growRows.filter((g) => g.status !== "growing").map((g) => g.plant_profile_id));
 
       const items: VaultCardItem[] = (profiles ?? []).map((p: Record<string, unknown>) => {
         const effective = getEffectiveCare(
@@ -875,6 +784,7 @@ export function SeedVaultView({
           owner_user_id: (p.user_id as string | null) ?? null,
           best_rating: bestRatingByProfile.get(pid) ?? null,
           plant_category: (p.plant_category as string | null) ?? null,
+          ever_grown: everGrownProfileIds.has(pid),
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -909,20 +819,12 @@ export function SeedVaultView({
   }, [filteredIds, onFilteredIdsChange]);
 
   useEffect(() => {
-    onSeedTypeChipsLoaded?.(seedTypeChips);
-  }, [seedTypeChips, onSeedTypeChipsLoaded]);
-
-  useEffect(() => {
     onPlantCategoryChipsLoaded?.(plantCategoryChips);
   }, [plantCategoryChips, onPlantCategoryChipsLoaded]);
 
   useEffect(() => {
     onRefineChipsLoaded?.(refineChips);
   }, [refineChips, onRefineChipsLoaded]);
-
-  useEffect(() => {
-    onVaultStatusChipsLoaded?.(vaultStatusChips);
-  }, [vaultStatusChips, onVaultStatusChipsLoaded]);
 
   const pendingHeroCount = useMemo(
     () => seeds.filter((s) => !(s.hero_image_url ?? "").trim() && !!s.hero_image_pending).length,
@@ -980,7 +882,7 @@ export function SeedVaultView({
   }
 
   if (filteredSeeds.length === 0) {
-    const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || seedTypeFilters.length > 0);
+    const hasFilters = !!(q || tagFilters.length > 0 || plantNameFilters.length > 0 || plantMonthFilter != null || invGrowing || invHasPackets || invPrevGrown || invPrevOwned || plantCategoryFilter || varietyFilter || vendorFilter || methodFilter || sunFilter || spacingFilter || germinationFilter || maturityFilter || packetCountFilter);
     if (hasFilters) {
       return (
         <NoMatchCard

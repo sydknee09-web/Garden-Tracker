@@ -33,11 +33,9 @@ import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
 import { VaultListSkeleton } from "@/components/PageSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
-import type { PacketStatusFilter } from "@/types/vault";
-import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
+import { isSeedTypeTag } from "@/constants/seedTypes";
 import { buildPlantCategoryChips } from "@/constants/plantCategories";
 
-export type { PacketStatusFilter };
 export type PacketVaultItem = {
   id: string;
   plant_profile_id: string;
@@ -72,11 +70,13 @@ const LONG_PRESS_MS = 500;
 export function PacketVaultView({
   refetchTrigger = 0,
   searchQuery = "",
-  statusFilter = "",
   vendorFilter = null,
   sortBy = "variety",
   sortDirection = "asc",
-  sowMonth = null,
+  plantMonthFilter = null,
+  plantNameFilters = [],
+  invHasPackets = false,
+  invPrevOwned = false,
   batchSelectMode = false,
   selectedPacketIds,
   onTogglePacketSelection,
@@ -87,29 +87,32 @@ export function PacketVaultView({
   onOpenScanner,
   onAddFirst,
   scrollContainerRef,
-  onPacketStatusChipsLoaded,
   onPacketVendorChipsLoaded,
   plantCategoryFilter = null,
   onPacketPlantCategoryChipsLoaded,
+  onPacketPlantNameOptionsLoaded,
   tagFilters = [],
-  seedTypeFilters = [],
   sunFilter = null,
   spacingFilter = null,
   germinationFilter = null,
   maturityFilter = null,
   onPacketTagsLoaded,
-  onPacketSeedTypeChipsLoaded,
   onPacketRefineChipsLoaded,
   onClearFilters,
   displayStyle = "list",
 }: {
   refetchTrigger?: number;
   searchQuery?: string;
-  statusFilter?: PacketStatusFilter;
   vendorFilter?: string | null;
   sortBy?: "date" | "variety" | "vendor" | "qty" | "rating";
   sortDirection?: "asc" | "desc";
-  sowMonth?: string | null;
+  /** Plant-in-month filter (1–12). null = inactive (Phase 2b). */
+  plantMonthFilter?: number | null;
+  /** Plant-name multi-select (Phase 2b). Empty = inactive; OR semantics. */
+  plantNameFilters?: string[];
+  /** Inventory toggles (Packets — 2 only). OR within the inventory dimension. */
+  invHasPackets?: boolean;
+  invPrevOwned?: boolean;
   batchSelectMode?: boolean;
   selectedPacketIds?: Set<string>;
   onTogglePacketSelection?: (packetId: string) => void;
@@ -120,20 +123,19 @@ export function PacketVaultView({
   onOpenScanner?: () => void;
   onAddFirst?: () => void;
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
-  onPacketStatusChipsLoaded?: (chips: { value: PacketStatusFilter; label: string; count: number }[]) => void;
   onPacketVendorChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   /** Primary-tier canonical plant_category filter (Sprint 11.5); single-select, null = all. */
   plantCategoryFilter?: string | null;
   /** Called when plant_category chips (count-gated, canonical order) are computed, for the primary chip row. */
   onPacketPlantCategoryChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  /** Called when distinct plant names are computed, for the Plant Name multi-select. */
+  onPacketPlantNameOptionsLoaded?: (names: string[]) => void;
   tagFilters?: string[];
-  seedTypeFilters?: string[];
   sunFilter?: string | null;
   spacingFilter?: string | null;
   germinationFilter?: string | null;
   maturityFilter?: string | null;
   onPacketTagsLoaded?: (tags: string[]) => void;
-  onPacketSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   onPacketRefineChipsLoaded?: (chips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }) => void;
   onClearFilters?: () => void;
   displayStyle?: "list" | "grid";
@@ -209,14 +211,6 @@ export function PacketVaultView({
     if (!path) return null;
     return supabase.storage.from("seed-packets").getPublicUrl(path).data.publicUrl;
   }, [imageErrorIds]);
-
-  const sowMonthIndex = useMemo(() => {
-    if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
-      const [, m] = sowMonth.split("-").map(Number);
-      return (m ?? 1) - 1;
-    }
-    return new Date().getMonth();
-  }, [sowMonth]);
 
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
@@ -375,6 +369,7 @@ export function PacketVaultView({
   const q = searchQuery.trim().toLowerCase();
 
   const filteredPackets = useMemo(() => {
+    const anyInv = !!(invHasPackets || invPrevOwned);
     return packets.filter((pkt) => {
       if (q) {
         const name = (pkt.profile_name ?? "").toLowerCase();
@@ -382,6 +377,16 @@ export function PacketVaultView({
         const vendor = (pkt.vendor_name ?? "").toLowerCase();
         if (!name.includes(q) && !variety.includes(q) && !vendor.includes(q)) return false;
       }
+      // Default behavior (no inventory toggle active): hide archived/out-of-stock packets.
+      const isOos = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
+      if (!anyInv && isOos) return false;
+      if (anyInv) {
+        const matches =
+          (invHasPackets && !pkt.is_archived && (pkt.qty_status ?? 0) > 0) ||
+          (invPrevOwned && (pkt.is_archived || (pkt.qty_status ?? 0) <= 0));
+        if (!matches) return false;
+      }
+      if (plantNameFilters && plantNameFilters.length > 0 && !plantNameFilters.includes(pkt.profile_name)) return false;
       if (vendorFilter != null && vendorFilter !== "") {
         const v = (pkt.vendor_name ?? "").trim();
         if (v !== vendorFilter) return false;
@@ -389,8 +394,8 @@ export function PacketVaultView({
       if (plantCategoryFilter != null && plantCategoryFilter !== "") {
         if ((pkt.plant_category ?? "").trim() !== plantCategoryFilter) return false;
       }
-      if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
-        if (!isPlantableInMonthSimple(pkt.planting_window, sowMonthIndex)) return false;
+      if (plantMonthFilter != null) {
+        if (!isPlantableInMonthSimple(pkt.planting_window, plantMonthFilter - 1)) return false;
       }
       if (tagFilters.length > 0) {
         const packetTagFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
@@ -398,10 +403,6 @@ export function PacketVaultView({
           const seedTags = pkt.tags ?? [];
           if (!packetTagFilters.some((t) => seedTags.includes(t))) return false;
         }
-      }
-      if (seedTypeFilters.length > 0) {
-        const effective = getEffectiveSeedTypes(pkt.tags, pkt.profile_name);
-        if (!seedTypeFilters.some((t) => effective.includes(t))) return false;
       }
       if (sunFilter != null && sunFilter !== "") {
         const sun = (pkt.sun ?? "").trim();
@@ -419,23 +420,9 @@ export function PacketVaultView({
         const m = maturityRange(pkt.harvest_days ?? null);
         if (m !== maturityFilter) return false;
       }
-      if (statusFilter === "vault") {
-        if (pkt.is_archived || (pkt.qty_status ?? 0) <= 0) return false;
-        if (pkt.isActive) return false;
-      }
-      if (statusFilter === "active") {
-        if (!pkt.isActive) return false;
-      }
-      if (statusFilter === "low_inventory") {
-        const qty = pkt.qty_status ?? 100;
-        if (qty > 20 || pkt.is_archived) return false;
-      }
-      if (statusFilter === "archived") {
-        if (!pkt.is_archived && (pkt.qty_status ?? 100) > 0) return false;
-      }
       return true;
     });
-  }, [packets, q, vendorFilter, plantCategoryFilter, sowMonth, sowMonthIndex, statusFilter, tagFilters, seedTypeFilters, sunFilter, spacingFilter, germinationFilter, maturityFilter]);
+  }, [packets, q, vendorFilter, plantCategoryFilter, plantMonthFilter, plantNameFilters, invHasPackets, invPrevOwned, tagFilters, sunFilter, spacingFilter, germinationFilter, maturityFilter]);
 
   const sortedPackets = useMemo(() => {
     const list = [...filteredPackets];
@@ -477,25 +464,6 @@ export function PacketVaultView({
   // vault-context swipe follows the user's filter/sort instead of newest-first (lib/swipeOrder).
   useSwipeOrderSnapshot("packets", filteredPacketIds);
 
-  const packetStatusChips = useMemo(() => {
-    const statuses: { value: PacketStatusFilter; label: string }[] = [
-      { value: "", label: "All" },
-      { value: "vault", label: "In storage" },
-      { value: "active", label: "Active" },
-      { value: "low_inventory", label: "Low inventory" },
-      { value: "archived", label: "Archived" },
-    ];
-    return statuses.map(({ value, label }) => {
-      let count = 0;
-      if (value === "") count = packets.length;
-      else if (value === "vault") count = packets.filter((p) => !p.is_archived && (p.qty_status ?? 0) > 0 && !p.isActive).length;
-      else if (value === "active") count = packets.filter((p) => p.isActive).length;
-      else if (value === "low_inventory") count = packets.filter((p) => (p.qty_status ?? 100) <= 20 && !p.is_archived).length;
-      else if (value === "archived") count = packets.filter((p) => p.is_archived || (p.qty_status ?? 0) <= 0).length;
-      return { value, label, count };
-    });
-  }, [packets]);
-
   const packetVendorChips = useMemo(() => {
     const map = new Map<string, number>();
     packets.forEach((p) => {
@@ -515,16 +483,10 @@ export function PacketVaultView({
     return Array.from(all).sort();
   }, [packets]);
 
-  const packetSeedTypeChips = useMemo(() => {
-    const map = new Map<string, number>();
-    packets.forEach((p) => {
-      const types = getEffectiveSeedTypes(p.tags, p.profile_name);
-      types.forEach((t) => map.set(t, (map.get(t) ?? 0) + 1));
-    });
-    return SEED_TYPE_TAGS.filter((t) => (map.get(t) ?? 0) > 0)
-      .map((value) => ({ value, count: map.get(value) ?? 0 }))
-      .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
-  }, [packets]);
+  const packetPlantNames = useMemo(
+    () => Array.from(new Set(packets.map((p) => p.profile_name))).sort((a, b) => a.localeCompare(b)),
+    [packets]
+  );
 
   const packetRefineChips = useMemo(() => {
     const sunMap = new Map<string, number>();
@@ -563,10 +525,6 @@ export function PacketVaultView({
   }, [filteredPacketCount, onFilteredCountChange]);
 
   useEffect(() => {
-    onPacketStatusChipsLoaded?.(packetStatusChips);
-  }, [packetStatusChips, onPacketStatusChipsLoaded]);
-
-  useEffect(() => {
     onPacketVendorChipsLoaded?.(packetVendorChips);
   }, [packetVendorChips, onPacketVendorChipsLoaded]);
 
@@ -579,8 +537,8 @@ export function PacketVaultView({
   }, [packetTags, onPacketTagsLoaded]);
 
   useEffect(() => {
-    onPacketSeedTypeChipsLoaded?.(packetSeedTypeChips);
-  }, [packetSeedTypeChips, onPacketSeedTypeChipsLoaded]);
+    onPacketPlantNameOptionsLoaded?.(packetPlantNames);
+  }, [packetPlantNames, onPacketPlantNameOptionsLoaded]);
 
   useEffect(() => {
     onPacketRefineChipsLoaded?.(packetRefineChips);
@@ -620,7 +578,7 @@ export function PacketVaultView({
   }
 
   if (sortedPackets.length === 0) {
-    const hasFilters = !!(q || statusFilter || vendorFilter || (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) || tagFilters.length > 0 || seedTypeFilters.length > 0 || sunFilter || spacingFilter || germinationFilter || maturityFilter);
+    const hasFilters = !!(q || vendorFilter || plantMonthFilter != null || plantNameFilters.length > 0 || invHasPackets || invPrevOwned || plantCategoryFilter || tagFilters.length > 0 || sunFilter || spacingFilter || germinationFilter || maturityFilter);
     if (hasFilters) {
       return (
         <NoMatchCard

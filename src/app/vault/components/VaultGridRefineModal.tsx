@@ -1,38 +1,41 @@
 "use client";
 
-import type { StatusFilter, VaultSortBy } from "@/types/vault";
+import type { VaultSortBy } from "@/types/vault";
+import { useState } from "react";
 import type { UseFilterStateReturn } from "@/hooks/useFilterState";
 import { getTagStyle } from "@/components/TagBadges";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { FilterChipGroup } from "@/components/FilterChipRow";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { isSeedTypeTag } from "@/constants/seedTypes";
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export type GridRefineSection =
   | "plantCategory"
+  | "plantName"
+  | "plantMonth"
+  | "inventory"
   | "sort"
-  | "vault"
   | "tags"
-  | "seedType"
-  | "sowingMonth"
   | "vendor"
+  | "variety"
   | "sun"
   | "spacing"
   | "germination"
   | "maturity"
   | "packetCount"
-  | "season"
   | "method"
   | null;
 
 export type RefineChips = {
+  variety: { value: string; count: number }[];
   vendor: { value: string; count: number }[];
   sun: { value: string; count: number }[];
   spacing: { value: string; count: number }[];
   germination: { value: string; count: number }[];
   maturity: { value: string; count: number }[];
   packetCount: { value: string; count: number }[];
-  season: { value: string; count: number }[];
   method: { value: string; count: number }[];
 };
 
@@ -48,15 +51,11 @@ export interface VaultGridRefineModalProps {
   sortDirection: "asc" | "desc";
   setSortDirection: (v: "asc" | "desc") => void;
   vaultFilters: UseFilterStateReturn<"vault">;
-  vaultStatusChips: { value: StatusFilter; label: string; count: number }[];
   plantCategoryChips: { value: string; count: number }[];
-  seedTypeChips: { value: string; count: number }[];
+  plantNameOptions: string[];
   availableTags: string[];
-  sowingMonthChips: { month: number; monthName: string; count: number }[];
-  sowParam: string | null;
   refineChips: RefineChips;
   filteredVarietyIds: string[];
-  router: AppRouterInstance;
 }
 
 export function VaultGridRefineModal({
@@ -71,16 +70,14 @@ export function VaultGridRefineModal({
   sortDirection,
   setSortDirection,
   vaultFilters,
-  vaultStatusChips,
   plantCategoryChips,
-  seedTypeChips,
+  plantNameOptions,
   availableTags,
-  sowingMonthChips,
-  sowParam,
   refineChips,
   filteredVarietyIds,
-  router,
 }: VaultGridRefineModalProps) {
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const currentMonth = new Date().getMonth() + 1;
   if (!open) return null;
 
   const sectionOptions = [
@@ -95,17 +92,6 @@ export function VaultGridRefineModal({
     { sortBy: "packet_count" as const, sortDirection: "desc" as const, label: "Packet Count (most first)" },
     { sortBy: "packet_count" as const, sortDirection: "asc" as const, label: "Packet Count (fewest first)" },
   ];
-
-  const statusOptions =
-    vaultStatusChips.length > 0
-      ? vaultStatusChips
-      : [
-          { value: "" as StatusFilter, label: "All", count: 0 },
-          { value: "vault" as StatusFilter, label: "In Storage", count: 0 },
-          { value: "active" as StatusFilter, label: "Active", count: 0 },
-          { value: "low_inventory" as StatusFilter, label: "Low Inventory", count: 0 },
-          { value: "archived" as StatusFilter, label: "Archived", count: 0 },
-        ];
 
   return (
     <>
@@ -163,6 +149,99 @@ export function VaultGridRefineModal({
               )}
             </div>
           )}
+          {/* Plant Name */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection((s) => (s === "plantName" ? null : "plantName"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "plantName"}
+            >
+              <span>Plant Name</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantName" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "plantName" && (
+              <div className="px-4 pb-3 pt-0">
+                <SearchableMultiSelect
+                  options={plantNameOptions.map((name) => ({ id: name, label: name }))}
+                  selectedIds={new Set(vaultFilters.filters.plantNames)}
+                  onChange={(set) => vaultFilters.setPlantNames([...set])}
+                  label="Plant Name"
+                  dropdownZIndex={120}
+                />
+              </div>
+            )}
+          </div>
+          {/* Plant in [Month] */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection((s) => (s === "plantMonth" ? null : "plantMonth"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "plantMonth"}
+            >
+              <span>{vaultFilters.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in [Month]"}</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantMonth" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "plantMonth" && (
+              <div className="px-4 pb-3 pt-0 max-h-[260px] overflow-y-auto space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => vaultFilters.setPlantMonth(null)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.plantMonth == null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                >
+                  Any month
+                </button>
+                {MONTH_NAMES.map((monthName, i) => {
+                  const monthNum = i + 1;
+                  const selected = vaultFilters.filters.plantMonth === monthNum;
+                  const isCurrent = monthNum === currentMonth;
+                  return (
+                    <button
+                      key={monthNum}
+                      type="button"
+                      onClick={() => vaultFilters.setPlantMonth(monthNum)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : isCurrent ? "text-emerald-700 hover:bg-black/5" : "text-black/80 hover:bg-black/5"}`}
+                    >
+                      {monthName}{isCurrent ? " (this month)" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* Inventory (4 toggles) */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection((s) => (s === "inventory" ? null : "inventory"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "inventory"}
+            >
+              <span>Inventory</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "inventory" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "inventory" && (
+              <div className="px-4 pb-3 pt-0 space-y-0.5">
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input type="checkbox" checked={vaultFilters.filters.invGrowing} onChange={() => vaultFilters.toggleInventory("growing")} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label="Currently growing" />
+                  <span className="text-sm text-black/80">Currently growing</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input type="checkbox" checked={vaultFilters.filters.invHasPackets} onChange={() => vaultFilters.toggleInventory("hasPackets")} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label="Has packets in inventory" />
+                  <span className="text-sm text-black/80">Has packets in inventory</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input type="checkbox" checked={vaultFilters.filters.invPrevGrown} onChange={() => vaultFilters.toggleInventory("prevGrown")} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label="Previously grown" />
+                  <span className="text-sm text-black/80">Previously grown</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                  <input type="checkbox" checked={vaultFilters.filters.invPrevOwned} onChange={() => vaultFilters.toggleInventory("prevOwned")} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label="Previously owned" />
+                  <span className="text-sm text-black/80">Previously owned</span>
+                </label>
+              </div>
+            )}
+          </div>
           <div className="border-b border-black/5">
             <button
               type="button"
@@ -196,468 +275,180 @@ export function VaultGridRefineModal({
               </div>
             )}
           </div>
+          {/* More Filters */}
           <div className="border-b border-black/5">
             <button
               type="button"
-              onClick={() => setRefineBySection((s) => (s === "vault" ? null : "vault"))}
+              onClick={() => setMoreFiltersOpen((o) => !o)}
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-              aria-expanded={refineBySection === "vault"}
+              aria-expanded={moreFiltersOpen}
             >
-              <span>Packet Inventory</span>
-              <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                {refineBySection === "vault" ? "▼" : "▸"}
-              </span>
+              <span>More Filters</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{moreFiltersOpen ? "▼" : "▸"}</span>
             </button>
-            {refineBySection === "vault" && (
-              <div className="px-4 pb-3 pt-0 space-y-0.5">
-                {statusOptions.map(({ value, label, count }) => {
-                  const selected = vaultFilters.filters.status === value;
-                  return (
-                    <button
-                      key={value || "all"}
-                      type="button"
-                      onClick={() => vaultFilters.setStatus(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {label} ({count})
+            {moreFiltersOpen && (
+              <div>
+                {/* Variety */}
+                {refineChips.variety.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "variety" ? null : "variety"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "variety"}>
+                      <span>Variety</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "▼" : "▸"}</span>
                     </button>
-                  );
-                })}
+                    {refineBySection === "variety" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setVariety(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.variety === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.variety.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setVariety(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters.filters.variety === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Sun */}
+                {refineChips.sun.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
+                      <span>Sun</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "sun" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setSun(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.sun === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.sun.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setSun(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.sun === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Spacing */}
+                {refineChips.spacing.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
+                      <span>Spacing</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "spacing" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setSpacing(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.spacing === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.spacing.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setSpacing(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters.filters.spacing === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Germination */}
+                {refineChips.germination.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
+                      <span>Germination</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "germination" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setGermination(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.germination === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.germination.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setGermination(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters.filters.germination === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Maturity */}
+                {refineChips.maturity.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
+                      <span>Maturity</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "maturity" && (
+                      <div className="px-6 pb-3 pt-0 space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.maturity === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.maturity.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Packet Count */}
+                {refineChips.packetCount.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "packetCount" ? null : "packetCount"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetCount"}>
+                      <span>Packet Count</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetCount" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "packetCount" && (
+                      <div className="px-6 pb-3 pt-0 space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setPacketCount(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.packetCount === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.packetCount.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setPacketCount(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.packetCount === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "2+" ? "2+ packets" : value === "1" ? "1 packet" : "0 packets"} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Method */}
+                {refineChips.method.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "method" ? null : "method"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "method"}>
+                      <span>Method</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "method" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "method" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setMethod(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.method.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setMethod(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "indoors" ? "Start Indoors" : "Plant Outdoors"} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Vendor */}
+                {refineChips.vendor.length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "vendor" ? null : "vendor"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "vendor"}>
+                      <span>Vendor</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vendor" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "vendor" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button type="button" onClick={() => vaultFilters.setVendor(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.vendor === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                        {refineChips.vendor.map(({ value, count }) => (
+                          <button key={value} type="button" onClick={() => vaultFilters.setVendor(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${vaultFilters.filters.vendor === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Tags */}
+                {availableTags.filter((t) => !isSeedTypeTag(t)).length > 0 && (
+                  <div className="border-t border-black/5">
+                    <button type="button" onClick={() => setRefineBySection((s) => (s === "tags" ? null : "tags"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "tags"}>
+                      <span>Tags</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
+                    </button>
+                    {refineBySection === "tags" && (
+                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        {availableTags.filter((t) => !isSeedTypeTag(t)).map((tag) => {
+                          const checked = vaultFilters.filters.tags.includes(tag);
+                          return (
+                            <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                              <input type="checkbox" checked={checked} onChange={() => vaultFilters.toggleTagFilter(tag)} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label={`Filter by ${tag}`} />
+                              <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>{tag}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          {availableTags.filter((t) => !isSeedTypeTag(t)).length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "tags" ? null : "tags"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "tags"}
-              >
-                <span>Tags</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "tags" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "tags" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  {availableTags.filter((t) => !isSeedTypeTag(t)).map((tag) => {
-                    const checked = vaultFilters.filters.tags.includes(tag);
-                    return (
-                      <label
-                        key={tag}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => vaultFilters.toggleTagFilter(tag)}
-                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                          aria-label={`Filter by ${tag}`}
-                        />
-                        <span
-                          className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}
-                        >
-                          {tag}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-          {seedTypeChips.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "seedType" ? null : "seedType"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "seedType"}
-              >
-                <span>Seed Type</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "seedType" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "seedType" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  {seedTypeChips.map(({ value, count }) => {
-                    const checked = vaultFilters.filters.seedTypes.includes(value);
-                    return (
-                      <label
-                        key={value}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => vaultFilters.toggleSeedTypeFilter(value)}
-                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                          aria-label={`Filter by ${value}`}
-                        />
-                        <span className="text-sm text-black/80">
-                          {value} ({count})
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-          <div className="border-b border-black/5">
-            <button
-              type="button"
-              onClick={() => setRefineBySection((s) => (s === "sowingMonth" ? null : "sowingMonth"))}
-              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-              aria-expanded={refineBySection === "sowingMonth"}
-            >
-              <span>Sowing Month</span>
-              <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                {refineBySection === "sowingMonth" ? "▼" : "▸"}
-              </span>
-            </button>
-            {refineBySection === "sowingMonth" && (
-              <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    router.replace("/library", { scroll: false });
-                    onClose();
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!sowParam ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-                    router.push(`/library?sow=${sow}`);
-                    onClose();
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${
-                    sowParam &&
-                    /^\d{4}-\d{2}$/.test(sowParam) &&
-                    sowParam ===
-                      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-                      ? "bg-emerald/10 text-emerald-800 font-medium"
-                      : "text-black/80 hover:bg-black/5"
-                  }`}
-                >
-                  Plant Now
-                </button>
-                {sowingMonthChips.map(({ month, monthName, count }) => {
-                  const year = new Date().getFullYear();
-                  const sowVal = `${year}-${String(month).padStart(2, "0")}`;
-                  const selected = sowParam === sowVal;
-                  return (
-                    <button
-                      key={month}
-                      type="button"
-                      onClick={() => {
-                        router.push(`/library?sow=${sowVal}`);
-                        onClose();
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {monthName} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          {refineChips.season.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "season" ? null : "season"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "season"}
-              >
-                <span>Season</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "season" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "season" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setSeason(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.season === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.season.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setSeason(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.season === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.method.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "method" ? null : "method"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "method"}
-              >
-                <span>Method</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "method" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "method" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setMethod(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.method.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setMethod(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value === "indoors" ? "Start Indoors" : "Plant Outdoors"} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.vendor.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "vendor" ? null : "vendor"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "vendor"}
-              >
-                <span>Vendor</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "vendor" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "vendor" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setVendor(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.vendor === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.vendor.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setVendor(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${vaultFilters.filters.vendor === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.sun.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "sun"}
-              >
-                <span>Sun</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "sun" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "sun" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setSun(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.sun === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.sun.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setSun(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.sun === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.spacing.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "spacing"}
-              >
-                <span>Spacing</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "spacing" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "spacing" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setSpacing(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.spacing === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.spacing.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setSpacing(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${vaultFilters.filters.spacing === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.germination.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "germination"}
-              >
-                <span>Germination</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "germination" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "germination" && (
-                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setGermination(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.germination === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.germination.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setGermination(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${vaultFilters.filters.germination === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.maturity.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "maturity"}
-              >
-                <span>Maturity</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "maturity" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "maturity" && (
-                <div className="px-4 pb-3 pt-0 space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setMaturity(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.maturity === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.maturity.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setMaturity(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {refineChips.packetCount.length > 0 && (
-            <div className="border-b border-black/5">
-              <button
-                type="button"
-                onClick={() => setRefineBySection((s) => (s === "packetCount" ? null : "packetCount"))}
-                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                aria-expanded={refineBySection === "packetCount"}
-              >
-                <span>Packet Count</span>
-                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
-                  {refineBySection === "packetCount" ? "▼" : "▸"}
-                </span>
-              </button>
-              {refineBySection === "packetCount" && (
-                <div className="px-4 pb-3 pt-0 space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => vaultFilters.setPacketCount(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.packetCount === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                  >
-                    All
-                  </button>
-                  {refineChips.packetCount.map(({ value, count }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => vaultFilters.setPacketCount(value)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.packetCount === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                    >
-                      {value === "2+" ? "2+ packets" : value === "1" ? "1 packet" : "0 packets"} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
         <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">

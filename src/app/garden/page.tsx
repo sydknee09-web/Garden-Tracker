@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { FilterChipGroup } from "@/components/FilterChipRow";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { GardenView, type GardenViewHandle } from "@/components/GardenView";
 import { GroupTabs, type SelectedGroup } from "@/components/GroupTabs";
@@ -64,6 +65,8 @@ import { fetchUserGroups } from "@/lib/groups";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 function GardenPageInner() {
   const { user } = useAuth();
   const router = useRouter();
@@ -82,11 +85,12 @@ function GardenPageInner() {
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const { toast, showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [plantCategoryChips, setPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
+  const [plantNameOptions, setPlantNameOptions] = useState<string[]>([]);
   const [filteredCount, setFilteredCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"plantCategory" | "plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"plantCategory" | "plantName" | "plantMonth" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [refineChips, setRefineChips] = useState<RefineChips | null>(null);
 
   const profileParam = searchParams.get("profile");
@@ -286,9 +290,6 @@ function GardenPageInner() {
     () => { if (profileParam) clearProfileFilter(); else if (growParam) clearGrowView(); }
   );
 
-  const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setCategoryChips(chips);
-  }, []);
   const handlePlantCategoryChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
     setPlantCategoryChips(chips);
   }, []);
@@ -620,6 +621,67 @@ function GardenPageInner() {
                     )}
                   </div>
                 )}
+                {/* Plant Name */}
+                <div className="border-b border-black/5">
+                  <button
+                    type="button"
+                    onClick={() => setRefineBySection((s) => (s === "plantName" ? null : "plantName"))}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                    aria-expanded={refineBySection === "plantName"}
+                  >
+                    <span>Plant Name</span>
+                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantName" ? "▴" : "▾"}</span>
+                  </button>
+                  {refineBySection === "plantName" && (
+                    <div className="px-4 pb-3 pt-0">
+                      <SearchableMultiSelect
+                        options={plantNameOptions.map((name) => ({ id: name, label: name }))}
+                        selectedIds={new Set(filters.filters.plantNames)}
+                        onChange={(set) => filters.setPlantNames([...set])}
+                        label="Plant Name"
+                        dropdownZIndex={120}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* Plant in [Month] */}
+                <div className="border-b border-black/5">
+                  <button
+                    type="button"
+                    onClick={() => setRefineBySection((s) => (s === "plantMonth" ? null : "plantMonth"))}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                    aria-expanded={refineBySection === "plantMonth"}
+                  >
+                    <span>{filters.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[filters.filters.plantMonth - 1]}` : "Plant in [Month]"}</span>
+                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantMonth" ? "▴" : "▾"}</span>
+                  </button>
+                  {refineBySection === "plantMonth" && (
+                    <div className="px-4 pb-3 pt-0 max-h-[260px] overflow-y-auto space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => filters.setPlantMonth(null)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${filters.filters.plantMonth == null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                      >
+                        Any month
+                      </button>
+                      {MONTH_NAMES.map((monthName, i) => {
+                        const monthNum = i + 1;
+                        const selected = filters.filters.plantMonth === monthNum;
+                        const isCurrent = monthNum === new Date().getMonth() + 1;
+                        return (
+                          <button
+                            key={monthNum}
+                            type="button"
+                            onClick={() => filters.setPlantMonth(monthNum)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : isCurrent ? "text-emerald-700 hover:bg-black/5" : "text-black/80 hover:bg-black/5"}`}
+                          >
+                            {monthName}{isCurrent ? " (this month)" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="border-b border-black/5">
                   <button
                     type="button"
@@ -655,42 +717,18 @@ function GardenPageInner() {
                     </div>
                   )}
                 </div>
+                {/* More Filters */}
                 <div className="border-b border-black/5">
                   <button
                     type="button"
-                    onClick={() => setRefineBySection((s) => (s === "plantType" ? null : "plantType"))}
+                    onClick={() => setMoreFiltersOpen((o) => !o)}
                     className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                    aria-expanded={refineBySection === "plantType"}
+                    aria-expanded={moreFiltersOpen}
                   >
-                    <span>Plant Type</span>
-                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▴" : "▾"}</span>
+                    <span>More Filters</span>
+                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{moreFiltersOpen ? "▴" : "▾"}</span>
                   </button>
-                  {refineBySection === "plantType" && (
-                    <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                      <button
-                        type="button"
-                        onClick={() => filters.setCategory(null)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm bg-emerald/10 text-emerald-800 font-medium"
-                      >
-                        All
-                      </button>
-                      {categoryChips.map(({ type, count }) => {
-                        const selected = filters.filters.category === type;
-                        return (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => filters.setCategory(type)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                          >
-                            {type} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                {(() => {
+                  {moreFiltersOpen && (() => {
                   const chips = refineChips;
                   const f = filters;
                   const setVariety = f.setVariety;
@@ -812,6 +850,7 @@ function GardenPageInner() {
                     </>
                   );
                 })()}
+                </div>
               </div>
               <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
                 {(() => {
@@ -870,8 +909,9 @@ function GardenPageInner() {
             searchQuery={searchDebounced}
             groupFilter={effectiveGroup}
             onLogHarvest={openLogHarvest}
-            categoryFilter={filters.filters.category}
-            onCategoryChipsLoaded={handleCategoryChipsLoaded}
+            plantMonthFilter={filters.filters.plantMonth}
+            plantNameFilters={filters.filters.plantNames}
+            onPlantNameOptionsLoaded={setPlantNameOptions}
             plantCategoryFilter={filters.filters.plantCategory}
             onPlantCategoryChipsLoaded={handlePlantCategoryChipsLoaded}
             varietyFilter={filters.filters.variety}

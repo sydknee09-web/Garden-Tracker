@@ -3,9 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/useToast";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import type { StatusFilter, VaultSortBy } from "@/types/vault";
+import type { VaultSortBy } from "@/types/vault";
 import { LoadingState } from "@/components/LoadingState";
 
 const SeedVaultView = dynamic(
@@ -234,9 +233,8 @@ function VaultPageInner() {
   const [sortBy, setSortBy] = useState<VaultSortBy>("date_added");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
-  const [seedTypeChips, setSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [plantCategoryChips, setPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
-  const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
+  const [plantNameOptions, setPlantNameOptions] = useState<string[]>([]);
   const [refineChips, setRefineChips] = useState<{
     variety: { value: string; count: number }[];
     vendor: { value: string; count: number }[];
@@ -245,29 +243,17 @@ function VaultPageInner() {
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
-    season: { value: string; count: number }[];
     method: { value: string; count: number }[];
-  }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [], season: [], method: [] });
-  const [vaultStatusChips, setVaultStatusChips] = useState<{ value: StatusFilter; label: string; count: number }[]>([]);
+  }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [], method: [] });
 
-  const sowParam = searchParams.get("sow");
   const gridFilters = useFilterState({
     schema: "vault",
-    onClear: useCallback(() => {
-      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
-    }, [sowParam, router, basePath]),
-    isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
     storageKey: FILTER_DEFAULT_KEYS.vaultProfiles,
   });
   const listFilters = useFilterState({
     schema: "vault",
-    onClear: useCallback(() => {
-      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
-    }, [sowParam, router]),
-    isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
     storageKey: FILTER_DEFAULT_KEYS.vaultPackets,
   });
-  const activeFilters = viewMode === "grid" ? gridFilters : listFilters;
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
 
@@ -279,17 +265,8 @@ function VaultPageInner() {
     });
   }, [user?.id, viewMode]);
 
-  const handleVaultStatusChipsLoaded = useCallback((chips: { value: StatusFilter; label: string; count: number }[]) => {
-    setVaultStatusChips(chips);
-  }, []);
-  const handleSeedTypeChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
-    setSeedTypeChips(chips);
-  }, []);
   const handlePlantCategoryChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
     setPlantCategoryChips(chips);
-  }, []);
-  const handleSowingMonthChipsLoaded = useCallback((chips: { month: number; monthName: string; count: number }[]) => {
-    setSowingMonthChips(chips);
   }, []);
   const handleRefineChipsLoaded = useCallback((chips: {
     variety: { value: string; count: number }[];
@@ -299,7 +276,6 @@ function VaultPageInner() {
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
-    season: { value: string; count: number }[];
     method: { value: string; count: number }[];
   }) => {
     setRefineChips(chips);
@@ -374,7 +350,7 @@ function VaultPageInner() {
   useEffect(() => {
     if (searchParams.get("added") === "1") {
       refetch();
-      router.replace(`${basePath}?status=vault`, { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
   }, [searchParams, router, basePath]);
 
@@ -389,7 +365,7 @@ function VaultPageInner() {
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     if (isPlantsSurface) {
-      // /library is single-mode Library; no tab sync. Status + sow still apply via gridFilters below.
+      // /library is single-mode Library; no tab sync.
       setViewMode("grid");
     } else {
       const tab = searchParams.get("tab");
@@ -400,28 +376,14 @@ function VaultPageInner() {
         setViewMode("list");
       }
     }
-    const status = searchParams.get("status");
-    if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
-      const tab = searchParams.get("tab");
-      if (tab === "list") listFilters.setStatus(status);
-      else gridFilters.setStatus(status);
-      if (searchParams.get("added") === "1") setSaveToastMessage("Added to Garden!");
-    }
-    const sow = searchParams.get("sow");
-    if (sow) {
-      // sow filter is grid-only — only meaningful on /library. On /vault, redirect effect already moved us.
-      if (isPlantsSurface) {
-        setViewMode("grid");
-        gridFilters.setStatus("vault");
-      }
-    }
-  }, [searchParams, gridFilters.setStatus, listFilters.setStatus, isPlantsSurface]);
+    if (searchParams.get("added") === "1") setSaveToastMessage("Added to Garden!");
+  }, [searchParams, isPlantsSurface]);
 
   // Clear filters when arriving from a different section (must run before restore effects)
   const hasRestoredSession = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined" || !pathname) return;
-    if (searchParams.get("tab") || searchParams.get("status") || searchParams.get("sow")) return;
+    if (searchParams.get("tab")) return;
     if (shouldClearFiltersOnMount(pathname)) {
       gridFilters.clearAllFilters();
       listFilters.clearAllFilters();
@@ -433,7 +395,7 @@ function VaultPageInner() {
   // Restore view/filter/search from sessionStorage when no URL params
   useEffect(() => {
     if (hasRestoredSession.current || typeof window === "undefined") return;
-    if (searchParams.get("tab") || searchParams.get("status") || searchParams.get("sow")) return;
+    if (searchParams.get("tab")) return;
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
@@ -452,15 +414,6 @@ function VaultPageInner() {
       const savedPacketStyle = sessionStorage.getItem("vault-packet-display-style");
       if (savedPacketStyle === "grid") setPacketDisplayStyle("grid");
       else if (savedPacketStyle === "list") setPacketDisplayStyle("list");
-      const savedStatus = sessionStorage.getItem("vault-status-filter");
-      if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") {
-        gridFilters.setStatus(savedStatus);
-        listFilters.setStatus(savedStatus);
-      }
-      const savedGridStatus = sessionStorage.getItem("vault-status-filter-grid");
-      if (savedGridStatus === "vault" || savedGridStatus === "active" || savedGridStatus === "low_inventory" || savedGridStatus === "archived") gridFilters.setStatus(savedGridStatus);
-      const savedListStatus = sessionStorage.getItem("vault-status-filter-list");
-      if (savedListStatus === "vault" || savedListStatus === "active" || savedListStatus === "low_inventory" || savedListStatus === "archived") listFilters.setStatus(savedListStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
       if (typeof savedSearch === "string") setSearchQuery(savedSearch);
       const loadedSort = gridFilters.loadedSort;
@@ -482,24 +435,21 @@ function VaultPageInner() {
     } catch {
       /* ignore */
     }
-  }, [searchParams, gridFilters.setStatus, listFilters.setStatus, gridFilters.loadedSort]);
+  }, [searchParams, gridFilters.loadedSort]);
 
   useEffect(() => {
     if (pathname) setLastNavSection(getNavSection(pathname));
   }, [pathname]);
 
-  // Persist view mode, status filter, and search to sessionStorage
+  // Persist view mode to sessionStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       sessionStorage.setItem("vault-view-mode", viewMode);
-      sessionStorage.setItem("vault-status-filter-grid", gridFilters.filters.status);
-      sessionStorage.setItem("vault-status-filter-list", listFilters.filters.status);
-      sessionStorage.setItem("vault-status-filter", activeFilters.filters.status);
     } catch {
       /* ignore */
     }
-  }, [viewMode, gridFilters.filters.status, listFilters.filters.status, activeFilters.filters.status]);
+  }, [viewMode]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -968,8 +918,7 @@ function VaultPageInner() {
     gridFilters.clearAllFilters();
     setRefineByOpen(false);
     setRefineBySection(null);
-    if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
-  }, [gridFilters.clearAllFilters, sowParam, router, basePath]);
+  }, [gridFilters.clearAllFilters]);
 
   const hasActiveFilters = viewMode === "grid" ? gridFilters.hasActiveFilters : listFilters.hasActiveFilters;
 
@@ -1137,18 +1086,7 @@ function VaultPageInner() {
                   Filter
                   {hasActiveFilters ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                      {[
-                        gridFilters.filters.status !== "",
-                        gridFilters.filters.plantCategory !== null,
-                        gridFilters.filters.tags.length > 0,
-                        gridFilters.filters.vendor !== null,
-                        gridFilters.filters.sun !== null,
-                        gridFilters.filters.spacing !== null,
-                        gridFilters.filters.germination !== null,
-                        gridFilters.filters.maturity !== null,
-                        gridFilters.filters.packetCount !== null,
-                        !!sowParam && /^\d{4}-\d{2}$/.test(sowParam),
-                      ].filter(Boolean).length}
+                      {gridFilters.filterCount}
                     </span>
                   ) : null}
                 </button>
@@ -1234,15 +1172,11 @@ function VaultPageInner() {
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
           vaultFilters={gridFilters}
-          vaultStatusChips={vaultStatusChips}
           plantCategoryChips={plantCategoryChips}
-          seedTypeChips={seedTypeChips}
+          plantNameOptions={plantNameOptions}
           availableTags={availableTags}
-          sowingMonthChips={sowingMonthChips}
-          sowParam={sowParam}
           refineChips={refineChips}
           filteredVarietyIds={filteredVarietyIds}
-          router={router}
         />
       )}
 
@@ -1252,24 +1186,11 @@ function VaultPageInner() {
         <div className="relative z-10 pt-2">
           {/* Both views mounted; visibility toggled for instant tab switching */}
           <div className={viewMode === "grid" ? "block" : "hidden"} aria-hidden={viewMode !== "grid"}>
-            {sowParam && /^\d{4}-\d{2}$/.test(sowParam) && (
-              <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-emerald-800">
-                  Plant this month ({(() => {
-                    const [, m] = sowParam.split("-").map(Number);
-                    return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
-                  })()})
-                </span>
-                <Link href="/library" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</Link>
-              </div>
-            )}
             <SeedVaultView
               refetchTrigger={refetchTrigger}
               scrollContainerRef={scrollContainerRef}
               searchQuery={searchQuery}
-              statusFilter={gridFilters.filters.status as StatusFilter}
               tagFilters={gridFilters.filters.tags}
-              seedTypeFilters={gridFilters.filters.seedTypes}
               onTagsLoaded={handleTagsLoaded}
               onOpenScanner={() => setScannerOpen(true)}
               onAddFirst={handleAddFirstManual}
@@ -1282,14 +1203,17 @@ function VaultPageInner() {
               onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
               availablePlantTypes={availablePlantTypes}
               onPlantTypeChange={handlePlantTypeChange}
-              plantNowFilter={!!sowParam}
-              sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
+              plantMonthFilter={gridFilters.filters.plantMonth}
+              plantNameFilters={gridFilters.filters.plantNames}
+              invGrowing={gridFilters.filters.invGrowing}
+              invHasPackets={gridFilters.filters.invHasPackets}
+              invPrevGrown={gridFilters.filters.invPrevGrown}
+              invPrevOwned={gridFilters.filters.invPrevOwned}
               gridDisplayStyle={gridDisplayStyle}
-              onSeedTypeChipsLoaded={handleSeedTypeChipsLoaded}
               plantCategoryFilter={gridFilters.filters.plantCategory}
               onPlantCategoryChipsLoaded={handlePlantCategoryChipsLoaded}
+              onPlantNameOptionsLoaded={setPlantNameOptions}
               vendorFilter={gridFilters.filters.vendor}
-              seasonFilter={gridFilters.filters.season}
               methodFilter={gridFilters.filters.method}
               sunFilter={gridFilters.filters.sun}
               spacingFilter={gridFilters.filters.spacing}
@@ -1297,8 +1221,6 @@ function VaultPageInner() {
               maturityFilter={gridFilters.filters.maturity}
               packetCountFilter={gridFilters.filters.packetCount}
               onRefineChipsLoaded={handleRefineChipsLoaded}
-              onVaultStatusChipsLoaded={handleVaultStatusChipsLoaded}
-              onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
               hideArchivedProfiles={false}
               sortBy={sortBy}
               sortDirection={sortDirection}
