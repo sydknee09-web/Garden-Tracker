@@ -136,22 +136,89 @@ export default function PlantingHistoryPage() {
   const statusLabel = (s: string | null | undefined): string =>
     s === "archived" ? "Archived" : "Growing";
 
-  return (
-    <div className="px-6 py-8 max-w-3xl mx-auto">
-      {toast}
-      <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
-      <h1 className="text-2xl font-bold text-neutral-900 mb-2">Planting History</h1>
-      <p className="text-sm text-neutral-500 mb-6">Every grow instance across all plants.</p>
+  // F4: split into Currently-growing (sown desc — query order) and Archived
+  // (most-recently-ended first; null ended_at sorts to the bottom).
+  const growingGrows = grows.filter((g) => g.status !== "archived");
+  const archivedGrows = grows
+    .filter((g) => g.status === "archived")
+    .sort((a, b) => (b.ended_at ?? "").localeCompare(a.ended_at ?? ""));
 
-      {loading ? (
-        <LoadingState message="Loading…" />
-      ) : grows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-          <p className="text-neutral-500 text-sm font-medium">No plantings to look back on yet.</p>
-          <p className="text-neutral-400 text-xs mt-1">Once you start a planting from a packet, it&rsquo;ll show up here — with how it grew, where it lived, and what you harvested.</p>
+  const germCountStr = (g: GrowRow): string =>
+    [
+      g.sow_method === "direct_sow" ? "Direct" : g.sow_method === "seed_start" ? "Seed start" : null,
+      g.seeds_sprouted != null && g.seeds_sown != null && g.seeds_sown > 0 ? `${g.seeds_sprouted}/${g.seeds_sown}` : null,
+      g.plant_count != null ? `${g.plant_count} plants` : null,
+    ].filter(Boolean).join(" · ") || "—";
+
+  const durationStr = (g: GrowRow): string => {
+    const sownDate = new Date(g.sown_date);
+    const endDate = g.ended_at ? new Date(g.ended_at) : null;
+    const days = endDate ? Math.round((endDate.getTime() - sownDate.getTime()) / 86400000) : null;
+    return days != null ? `${days}d` : "ongoing";
+  };
+
+  // Restore + permanent-delete actions for archived rows — shared by the mobile
+  // card and the desktop table so both stay reachable (Phase 1 parity).
+  const archivedActions = (g: GrowRow) => (
+    <span className="inline-flex min-h-[44px] items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setRestoreOpen(g)}
+        className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline whitespace-nowrap px-2 py-1"
+        aria-label={`Restore ${g.profile_name} to Growing`}
+      >
+        Restore
+      </button>
+      <button
+        type="button"
+        onClick={() => { setDeleteOpen(g); setDeleteConfirmText(""); }}
+        className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline whitespace-nowrap px-2 py-1"
+        aria-label={`Permanently delete ${g.profile_name}`}
+      >
+        Delete
+      </button>
+    </span>
+  );
+
+  const renderGrowSection = (label: string, rows: GrowRow[]) => {
+    if (rows.length === 0) return null;
+    return (
+      <section key={label} className="mb-6">
+        <div className="px-1 pb-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">{label} ({rows.length})</span>
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+
+        {/* Mobile (< md): cards */}
+        <div className="md:hidden space-y-3">
+          {rows.map((g) => {
+            const gc = germCountStr(g);
+            const meta = [
+              gc !== "—" ? gc : null,
+              g.harvest_count > 0 ? `${g.harvest_count} harvest${g.harvest_count > 1 ? "s" : ""}` : null,
+              durationStr(g),
+            ].filter(Boolean).join(" · ");
+            return (
+              <div key={g.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <Link href={`/library/${g.plant_profile_id}`} className="font-medium text-neutral-800 hover:text-emerald-600 hover:underline">
+                    {g.profile_name}{g.variety_name?.trim() ? ` (${g.variety_name})` : ""}
+                  </Link>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
+                    {statusLabel(g.status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">
+                  Sown {new Date(g.sown_date).toLocaleDateString()}{g.location ? ` · ${g.location}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-neutral-600">{meta}</p>
+                {g.status === "archived" && <div className="mt-3">{archivedActions(g)}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop (md+): table */}
+        <div className="hidden md:block bg-white rounded-xl border border-neutral-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -166,62 +233,55 @@ export default function PlantingHistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {grows.map((g) => {
-                  const sownDate = new Date(g.sown_date);
-                  const endDate = g.ended_at ? new Date(g.ended_at) : null;
-                  const durationDays = endDate ? Math.round((endDate.getTime() - sownDate.getTime()) / (86400000)) : null;
-                  return (
-                    <tr key={g.id} className="hover:bg-neutral-50">
-                      <td className="px-4 py-3">
-                        <Link href={`/library/${g.plant_profile_id}`} className="font-medium text-neutral-800 hover:text-emerald-600 hover:underline">
-                          {g.profile_name}{g.variety_name?.trim() ? ` (${g.variety_name})` : ""}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-neutral-600">{sownDate.toLocaleDateString()}</td>
-                      <td className="px-4 py-3 text-neutral-500">{g.location || "—"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
-                            {statusLabel(g.status)}
-                          </span>
-                          {g.status === "archived" && (
-                            <span className="inline-flex min-h-[44px] items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setRestoreOpen(g)}
-                                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline whitespace-nowrap px-2 py-1"
-                                aria-label={`Restore ${g.profile_name} to Growing`}
-                              >
-                                Restore
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setDeleteOpen(g); setDeleteConfirmText(""); }}
-                                className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline whitespace-nowrap px-2 py-1"
-                                aria-label={`Permanently delete ${g.profile_name}`}
-                              >
-                                Delete
-                              </button>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-neutral-600 text-xs">
-                        {[
-                          g.sow_method === "direct_sow" ? "Direct" : g.sow_method === "seed_start" ? "Seed start" : null,
-                          g.seeds_sprouted != null && g.seeds_sown != null && g.seeds_sown > 0 ? `${g.seeds_sprouted}/${g.seeds_sown}` : null,
-                          g.plant_count != null ? `${g.plant_count} plants` : null,
-                        ].filter(Boolean).join(" · ") || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-neutral-600">{g.harvest_count > 0 ? g.harvest_count : "—"}</td>
-                      <td className="px-4 py-3 text-neutral-500">{durationDays != null ? `${durationDays}d` : "ongoing"}</td>
-                    </tr>
-                  );
-                })}
+                {rows.map((g) => (
+                  <tr key={g.id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3">
+                      <Link href={`/library/${g.plant_profile_id}`} className="font-medium text-neutral-800 hover:text-emerald-600 hover:underline">
+                        {g.profile_name}{g.variety_name?.trim() ? ` (${g.variety_name})` : ""}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-neutral-600">{new Date(g.sown_date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-neutral-500">{g.location || "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
+                          {statusLabel(g.status)}
+                        </span>
+                        {g.status === "archived" && archivedActions(g)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-neutral-600 text-xs">{germCountStr(g)}</td>
+                    <td className="px-4 py-3 text-neutral-600">{g.harvest_count > 0 ? g.harvest_count : "—"}</td>
+                    <td className="px-4 py-3 text-neutral-500">{durationStr(g)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="px-6 py-8 max-w-3xl mx-auto">
+      {toast}
+      <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Settings</Link>
+      <h1 className="text-2xl font-bold text-neutral-900 mb-2">Planting History</h1>
+      <p className="text-sm text-neutral-500 mb-6">Your active grows and archived history.</p>
+
+      {loading ? (
+        <LoadingState message="Loading…" />
+      ) : grows.length === 0 ? (
+        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+          <p className="text-neutral-500 text-sm font-medium">No plantings to look back on yet.</p>
+          <p className="text-neutral-400 text-xs mt-1">Once you start a planting from a packet, it&rsquo;ll show up here — with how it grew, where it lived, and what you harvested.</p>
+        </div>
+      ) : (
+        <>
+          {renderGrowSection("Currently growing", growingGrows)}
+          {renderGrowSection("Archived plantings", archivedGrows)}
+        </>
       )}
 
       {restoreOpen && (

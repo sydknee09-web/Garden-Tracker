@@ -130,7 +130,7 @@ export default function FeedbackInboxPage() {
     <div className="min-h-screen p-6">
       <div className="mx-auto max-w-6xl">
         <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
-          ← Back
+          ← Settings
         </Link>
         <div className="flex items-center justify-between gap-3 mb-2">
           <h1 className="text-2xl font-semibold">Feedback Inbox</h1>

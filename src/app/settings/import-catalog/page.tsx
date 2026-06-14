@@ -65,7 +65,7 @@ export default function ImportCatalogPage() {
         href="/settings"
         className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center"
       >
-        ← Back
+        ← Settings
       </Link>
       <h1 className="text-xl font-bold text-neutral-900 mb-1">Import Vendor Catalog</h1>
       <p className="text-sm text-neutral-500 mb-4">
