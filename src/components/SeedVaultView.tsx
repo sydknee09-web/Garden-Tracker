@@ -399,13 +399,15 @@ export function SeedVaultView({
     return seeds.filter((s) => {
       if (hideArchivedProfiles && !anyInv && (s.packet_count ?? 0) <= 0) return false;
       if (anyInv) {
+        // AND/intersection (Sprint 14 #83, Syd 2026-06-14 19:06): each SELECTED inventory toggle is a
+        // required predicate, so selecting several narrows to plants meeting ALL of them. The 4 Library
+        // toggles are independent dimensions that co-occur on one plant (a plant can be growing AND have
+        // packets AND been previously grown), so intersection is meaningful here.
         const st = (s.status ?? "").toLowerCase();
-        const matches =
-          (invGrowing && st === "active") ||
-          (invHasPackets && (s.packet_count ?? 0) > 0) ||
-          (invPrevGrown && s.ever_grown === true) ||
-          (invPrevOwned && isPreviouslyOwned(s));
-        if (!matches) return false;
+        if (invGrowing && st !== "active") return false;
+        if (invHasPackets && (s.packet_count ?? 0) <= 0) return false;
+        if (invPrevGrown && s.ever_grown !== true) return false;
+        if (invPrevOwned && !isPreviouslyOwned(s)) return false;
       }
       if (plantNameFilters && plantNameFilters.length > 0 && !plantNameFilters.includes(s.name)) return false;
       if (varietyFilter != null && varietyFilter !== "") {

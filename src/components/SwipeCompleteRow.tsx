@@ -38,7 +38,12 @@ export function SwipeCompleteRow({
     onSwipeLeft: onComplete,
     onSwipeRight: onSnooze ?? noop,
   });
-  const showSwipeReveal = swipeOffsetX !== 0;
+  // Complete-only surfaces (no onSnooze) have no right-swipe action — clamp the offset to ≤0 so a
+  // right-swipe doesn't slide the row open onto an empty emerald reveal (Sprint 14 #69). Surfaces
+  // with a snooze action (Calendar) keep the full bidirectional offset. VISION §8: At-a-Glance /
+  // Shopping List are complete-only (swipe-LEFT); snooze is not part of their swipe contract.
+  const effectiveOffsetX = onSnooze ? swipeOffsetX : Math.min(0, swipeOffsetX);
+  const showSwipeReveal = effectiveOffsetX !== 0;
 
   return (
     <div className="relative overflow-hidden rounded-xl">
@@ -50,7 +55,7 @@ export function SwipeCompleteRow({
                 width="24" height="24" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 className="text-amber-700"
-                style={{ opacity: Math.max(0, Math.min(1, swipeOffsetX / 80)) }}
+                style={{ opacity: Math.max(0, Math.min(1, effectiveOffsetX / 80)) }}
               >
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 6v6l4 2" />
@@ -63,7 +68,7 @@ export function SwipeCompleteRow({
               width="24" height="24" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
               className="text-emerald-700"
-              style={{ opacity: Math.max(0, Math.min(1, -swipeOffsetX / 80)) }}
+              style={{ opacity: Math.max(0, Math.min(1, -effectiveOffsetX / 80)) }}
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -73,7 +78,7 @@ export function SwipeCompleteRow({
       <div
         ref={rowRef}
         style={{
-          transform: `translateX(${swipeOffsetX}px)`,
+          transform: `translateX(${effectiveOffsetX}px)`,
           transition: isSwiping ? "none" : "transform 0.2s ease-out",
         }}
         className={`relative ${className}`}

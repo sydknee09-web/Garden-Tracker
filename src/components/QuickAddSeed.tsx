@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { FabAddOptionCard } from "@/components/FabAddOptionCard";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
@@ -624,48 +625,40 @@ export function SeedPacketForm({
 
       {step === "choose" && (
         <div key="choose" className={`space-y-3 ${slideClass}`}>
-          <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a seed.</p>
-          <button
-            type="button"
+          <p className="text-sm text-neutral-500 text-center mb-4">Choose how to add a seed.</p>
+          <FabAddOptionCard
+            icon={<ICON_MAP.ManualEntry className="w-5 h-5" />}
+            title="Manual Entry"
+            subtitle="Enter name, variety, vendor"
             onClick={() => { setStepDirection("forward"); setStep("manual"); }}
-            className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-          >
-            <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-            Manual Entry
-          </button>
-          <button
-            type="button"
+          />
+          <FabAddOptionCard
+            icon={<ICON_MAP.Link className="w-5 h-5" />}
+            title="Link Import"
+            subtitle="Paste a product URL"
             onClick={() => { setStepDirection("forward"); setStep("link"); }}
-            className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-          >
-            <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
-            Link Import
-          </button>
+          />
           {onOpenPurchaseOrder && (
-            <button
-              type="button"
+            <FabAddOptionCard
+              icon={<ICON_MAP.PurchaseOrder className="w-5 h-5" />}
+              title="Scan Purchase Order"
+              subtitle="Screenshot of cart or order with seeds"
               onClick={() => {
                 onClose();
                 onOpenPurchaseOrder();
               }}
-              className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-            >
-              <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-              Purchase Order
-            </button>
+            />
           )}
           {onOpenBatch && (
-            <button
-              type="button"
+            <FabAddOptionCard
+              icon={<ICON_MAP.PhotoImport className="w-5 h-5" />}
+              title="Photo Import"
+              subtitle="Multi-photo, extract seed tags"
               onClick={() => {
                 onClose();
                 onOpenBatch();
               }}
-              className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-            >
-              <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
-              Photo Import
-            </button>
+            />
           )}
         </div>
       )}

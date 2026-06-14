@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { GrowInstanceModal } from "@/components/GrowInstanceModal";
 import { HarvestModal } from "@/components/HarvestModal";
+import { useNavHighlight } from "@/contexts/NavHighlightContext";
 import { getSwipeOrder } from "@/lib/swipeOrder";
 import type { BatchLogBatch } from "@/components/BatchLogSheet";
 
@@ -28,6 +29,8 @@ export default function GardenGrowDetailPage() {
   const fromParam = searchParams.get("from");
   const profileIdParam = searchParams.get("profileId");
   const packetIdParam = searchParams.get("packetId");
+
+  const { setSuppressGarden } = useNavHighlight();
 
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [subSheetOpen, setSubSheetOpen] = useState(false);
@@ -67,6 +70,29 @@ export default function GardenGrowDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [user?.id, id]);
+
+  // Bottom-nav highlight (Sprint 14 #75): archived plantings share this /garden/grow/[id] route with
+  // active ones, so the pathname-only nav lit the Garden tab even though archived plantings aren't in
+  // Garden. Suppress the Garden highlight when the loaded instance is archived. Reset to false while
+  // loading + on unmount/id-change so suppression never leaks to another page.
+  useEffect(() => {
+    setSuppressGarden(false);
+    if (!user?.id || !id) return;
+    let cancelled = false;
+    supabase
+      .from("grow_instances")
+      .select("status")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSuppressGarden((data as { status?: string } | null)?.status === "archived");
+      });
+    return () => {
+      cancelled = true;
+      setSuppressGarden(false);
+    };
+  }, [id, user?.id, setSuppressGarden]);
 
   const { prevId, nextId } = useMemo(() => {
     if (!id || orderedIds.length === 0) return { prevId: null as string | null, nextId: null as string | null };

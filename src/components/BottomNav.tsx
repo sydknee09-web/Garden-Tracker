@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { primaryNavItems, isNavItemActive, NAV_ICON_SIZE } from "./navItems";
+import { useNavHighlight } from "@/contexts/NavHighlightContext";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { suppressGarden } = useNavHighlight();
 
   return (
     <nav
@@ -17,7 +19,10 @@ export function BottomNav() {
     >
       <div className="flex items-center h-16 max-w-lg mx-auto px-2">
         {primaryNavItems.map(({ href, label, Icon }) => {
-          const isActive = isNavItemActive(href, pathname);
+          // Archived plantings live at /garden/grow/[id] but aren't in Garden — suppress that tab's
+          // highlight when the instance page flags it (Sprint 14 #75).
+          const isActive =
+            suppressGarden && href === "/garden" ? false : isNavItemActive(href, pathname);
           return (
             <Link
               key={href}

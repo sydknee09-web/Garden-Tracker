@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   loadFilterDefault,
   saveFilterDefault,
   clearFilterDefault,
   hasFilterDefault,
+  loadActiveFilters,
+  saveActiveFilters,
 } from "@/lib/filterDefaults";
 
 /** Inventory/lifecycle toggle keys (Phase 2b). Library uses all 4; Packets uses hasPackets + prevOwned; Garden uses none. */
@@ -207,6 +209,13 @@ export function useFilterState<T extends FilterSchema>(
 
   const [filters, setFilters] = useState<GardenFilterValues | VaultFilterValues>(() => {
     if (storageKey) {
+      // Restore priority (Sprint 14 #74): the session's current ad-hoc selection wins (survives
+      // back-nav), then the saved localStorage default, then empty. A fresh tab (no active entry)
+      // falls back to the saved default.
+      const active = loadActiveFilters<unknown>(storageKey);
+      const activeNormalized =
+        schema === "garden" ? normalizeGardenLoaded(active) : normalizeVaultLoaded(active);
+      if (activeNormalized) return activeNormalized;
       const loaded = loadFilterDefault<unknown>(storageKey);
       const normalized =
         schema === "garden"
@@ -216,6 +225,13 @@ export function useFilterState<T extends FilterSchema>(
     }
     return schema === "garden" ? { ...EMPTY_GARDEN } : { ...EMPTY_VAULT };
   });
+
+  // Mirror the current filter selection to sessionStorage so it survives navigating to a detail
+  // page + pressing browser/hardware back (which remounts this hook). Write on every change,
+  // including back to empty (an explicit clear should restore as empty, not as the saved default).
+  useEffect(() => {
+    if (storageKey) saveActiveFilters(storageKey, filters);
+  }, [storageKey, filters]);
 
   const [defaultSaved, setDefaultSaved] = useState(() =>
     storageKey ? hasFilterDefault(storageKey) : false

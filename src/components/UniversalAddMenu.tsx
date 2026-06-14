@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { ICON_MAP, FAB_MENU_SHADOW_CLASS } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { FabAddOptionCard } from "@/components/FabAddOptionCard";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { TaskForm } from "@/components/NewTaskModal";
@@ -135,76 +137,50 @@ export function UniversalAddMenu({
         {screen === "main" && (
           <div key="main" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <div className="flex-shrink-0 px-6 pt-4 pb-2">
-              <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900">Add</h2>
+              <div className="flex items-center gap-2">
+                <div className="w-11 shrink-0" aria-hidden />
+                <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900 flex-1">Add</h2>
+                <ModalCloseButton onClick={onClose} />
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
               <div className="space-y-1.5">
-                <button
-                  type="button"
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Plant className="w-5 h-5" />}
+                  title="Add to Library"
+                  subtitle="Add to your Library"
                   onClick={() => { setScreenDirection("forward"); setScreen("variety"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add to Library</div>
-                    <div className="text-xs font-normal text-neutral-500">Add to your Library</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.SeedPacket className="w-5 h-5" />}
+                  title="Add Seed Packet"
+                  subtitle="Seeds for your vault"
                   onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.SeedPacket className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add Seed Packet</div>
-                    <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Tree className="w-5 h-5" />}
+                  title="Add Plant"
+                  subtitle="Trees, perennials, or seasonal"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Tree className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add Plant</div>
-                    <div className="text-xs font-normal text-neutral-500">Trees, perennials, or seasonal</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Shed className="w-5 h-5" />}
+                  title="Add to Shed"
+                  subtitle="Fertilizer, soil, supplies"
                   onClick={() => { setScreenDirection("forward"); setScreen("shed"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add to Shed</div>
-                    <div className="text-xs font-normal text-neutral-500">Fertilizer, soil, supplies</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Task className="w-5 h-5" />}
+                  title="Add Task"
+                  subtitle="Reminder or to-do for calendar"
                   onClick={() => { setScreenDirection("forward"); setScreen("task"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add Task</div>
-                    <div className="text-xs font-normal text-neutral-500">Reminder or to-do for calendar</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Journal className="w-5 h-5" />}
+                  title="Add Journal"
+                  subtitle="Log growth, harvest, notes"
                   onClick={() => { setScreenDirection("forward"); setScreen("journal"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
-                  <div>
-                    <div>Add Journal</div>
-                    <div className="text-xs font-normal text-neutral-500">Log growth, harvest, notes</div>
-                  </div>
-                </button>
+                />
               </div>
             </div>
             <div className="flex-shrink-0 px-6 py-3 border-t border-neutral-200">
@@ -221,59 +197,39 @@ export function UniversalAddMenu({
                   <ICON_MAP.Back className="w-5 h-5" />
                 </button>
                 <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Plant</h2>
-                <div className="w-11 shrink-0" aria-hidden />
+                <ModalCloseButton onClick={onClose} />
               </div>
-              <p className="text-sm text-neutral-500 text-center">How do you want to add a plant?</p>
+              <p className="text-sm text-neutral-500 text-center">Choose how to add a plant.</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
               <div className="space-y-1.5">
-                <button
-                  type="button"
+                <FabAddOptionCard
+                  icon={<ICON_MAP.ManualEntry className="w-5 h-5" />}
+                  title="Manual Entry"
+                  subtitle="Enter name, variety, notes"
                   onClick={handleAddPlantManual}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-                  <div>
-                    <div>Manual Entry</div>
-                    <div className="text-xs font-normal text-neutral-500">Enter name, variety, notes</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
+                />
+                <FabAddOptionCard
+                  icon={<ICON_MAP.Sprout className="w-5 h-5" />}
+                  title="From Library"
+                  subtitle="Plant from your Library"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant-from-vault"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Sprout className="w-5 h-5" /></span>
-                  <div>
-                    <div>From Library</div>
-                    <div className="text-xs font-normal text-neutral-500">Plant from your Library</div>
-                  </div>
-                </button>
+                />
                 {onAddPlantPurchaseOrder && (
-                  <button
-                    type="button"
+                  <FabAddOptionCard
+                    icon={<ICON_MAP.PurchaseOrder className="w-5 h-5" />}
+                    title="Scan Purchase Order"
+                    subtitle="Screenshot of cart or order with plants"
                     onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
-                    className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                  >
-                    <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-                    <div>
-                      <div>Scan Purchase Order</div>
-                      <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with plants</div>
-                    </div>
-                  </button>
+                  />
                 )}
                 {onAddPlantPhotoImport && (
-                  <button
-                    type="button"
+                  <FabAddOptionCard
+                    icon={<ICON_MAP.PhotoImport className="w-5 h-5" />}
+                    title="Photo Import"
+                    subtitle="Multi-photo, extract plant tags"
                     onClick={() => { onClose(); onAddPlantPhotoImport(); }}
-                    className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                  >
-                    <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
-                    <div>
-                      <div>Photo Import</div>
-                      <div className="text-xs font-normal text-neutral-500">Multi-photo, extract plant tags</div>
-                    </div>
-                  </button>
+                  />
                 )}
               </div>
             </div>
@@ -309,7 +265,7 @@ export function UniversalAddMenu({
                   <ICON_MAP.Back className="w-5 h-5" />
                 </button>
                 <h2 className="text-xl font-bold text-neutral-900 flex-1 text-center">Planting</h2>
-                <div className="w-11 shrink-0" aria-hidden />
+                <ModalCloseButton onClick={onClose} />
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-2">
