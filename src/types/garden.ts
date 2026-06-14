@@ -261,6 +261,19 @@ export interface PlantProfile {
   seed_saving_notes?: string | null;
   /** One-sentence AI-generated caveat about seed-propagation suitability. NULL = standard seed-grown variety, no caveat needed. */
   seed_propagation_context?: string | null;
+  // ── Sprint 10 per-section "Notes" (migration 20260613230000) — tight topic-specific AI notes
+  //    feeding the per-section ▾ expanders, DISTINCT from the cross-cutting growing_notes.
+  //    Sun/Water reuse sun_detail/water_detail; these cover the sections that lacked a note field. ──
+  /** Tight soil/site note for the Soil expander (How to Grow). */
+  soil_notes?: string | null;
+  /** Tight seed-starting note for the Seed Starting expander (sow timing/temp/hardening-off). */
+  seed_starting_notes?: string | null;
+  /** Tight pest/disease watch note for the Pest + Disease expander. */
+  pest_disease_notes?: string | null;
+  /** Tight harvest note for the Harvest expander (cues, handling, succession). */
+  harvest_notes?: string | null;
+  /** Tight companion-planting note for the Companion expander (why these pairings). */
+  companion_notes?: string | null;
   /** Source of description/notes: 'vendor' | 'ai' | 'user' for UI attribution. */
   description_source?: string | null;
   // ── Sprint 4 enrichment fields (migration 20260610120000) — all AI-fillable ──

@@ -105,6 +105,12 @@ export type EnrichFromNameResponse = {
   propagation_method?: string[] | null;
   seed_saving_notes?: string | null;
   seed_propagation_context?: string | null;
+  // Sprint 10 per-section notes (tight, topic-specific).
+  soil_notes?: string | null;
+  seed_starting_notes?: string | null;
+  pest_disease_notes?: string | null;
+  harvest_notes?: string | null;
+  companion_notes?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
   harvest_season?: string[] | null;
@@ -147,7 +153,7 @@ export type EnrichFromNameResponse = {
 /** Columns selected from / upserted to global_plant_library. Single source of truth so read + write stay aligned. */
 const LIBRARY_COLUMNS =
   "mature_height, mature_width, sun, water, spacing, germination_days, harvest_days, description, " +
-  "growing_notes, propagation_notes, seed_saving_notes, seed_propagation_context, companion_plants, avoid_plants, " +
+  "growing_notes, propagation_notes, seed_saving_notes, seed_propagation_context, soil_notes, seed_starting_notes, pest_disease_notes, harvest_notes, companion_notes, companion_plants, avoid_plants, " +
   "planting_window, sowing_depth, sowing_method, scientific_name, " +
   "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, " +
   "pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, " +
@@ -217,6 +223,11 @@ function responseFromLibraryRow(
     propagation_method: arr(row.propagation_method),
     seed_saving_notes: str(row.seed_saving_notes),
     seed_propagation_context: str(row.seed_propagation_context),
+    soil_notes: str(row.soil_notes),
+    seed_starting_notes: str(row.seed_starting_notes),
+    pest_disease_notes: str(row.pest_disease_notes),
+    harvest_notes: str(row.harvest_notes),
+    companion_notes: str(row.companion_notes),
     companion_plants: arr(row.companion_plants),
     avoid_plants: arr(row.avoid_plants),
     harvest_season: arr(row.harvest_season),
@@ -388,6 +399,11 @@ export async function POST(req: Request) {
       propagation_method: parseCommaList(result.propagation_method),
       seed_saving_notes: result.seed_saving_notes?.trim() || null,
       seed_propagation_context: result.seed_propagation_context?.trim() || null,
+      soil_notes: result.soil_notes?.trim() || null,
+      seed_starting_notes: result.seed_starting_notes?.trim() || null,
+      pest_disease_notes: result.pest_disease_notes?.trim() || null,
+      harvest_notes: result.harvest_notes?.trim() || null,
+      companion_notes: result.companion_notes?.trim() || null,
       companion_plants: parseCommaList(result.companion_plants),
       avoid_plants: parseCommaList(result.avoid_plants),
       harvest_season: parseCommaList(result.harvest_season),
@@ -455,6 +471,11 @@ export async function POST(req: Request) {
             propagation_notes: response.propagation_notes ?? null,
             seed_saving_notes: response.seed_saving_notes ?? null,
             seed_propagation_context: response.seed_propagation_context ?? null,
+            soil_notes: response.soil_notes ?? null,
+            seed_starting_notes: response.seed_starting_notes ?? null,
+            pest_disease_notes: response.pest_disease_notes ?? null,
+            harvest_notes: response.harvest_notes ?? null,
+            companion_notes: response.companion_notes ?? null,
             companion_plants: response.companion_plants ?? null,
             avoid_plants: response.avoid_plants ?? null,
             planting_window: response.planting_window ?? null,

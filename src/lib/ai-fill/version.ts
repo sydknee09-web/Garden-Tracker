@@ -33,10 +33,15 @@
  *    and a structured hardiness_zone_min/max range is captured instead. Zone-specific viability is
  *    computed at render time. v3 (and earlier) rows carry zone-biased windows/months, so they
  *    self-heal (re-enrich zone-agnostic) on their next AI-fill touch.
+ *  - v5 (2026-06-13, Sprint 10 addendum): per-section "Notes" — the Gemini prompt now also produces
+ *    tight topic-specific notes per section (soil_notes / seed_starting_notes / pest_disease_notes /
+ *    harvest_notes / companion_notes; Sun/Water reuse the existing sun_detail/water_detail), DISTINCT
+ *    from the cross-cutting growing_notes. v4 (and earlier) rows lack these fields, so they
+ *    self-heal (re-enrich) on their next AI-fill touch and populate the new section notes.
  *
  * Pure constant — safe to import from both server routes and client components.
  */
-export const CURRENT_AI_FILL_VERSION = 4;
+export const CURRENT_AI_FILL_VERSION = 5;
 
 /**
  * Whether an AI Fill run may write an AI-derived value into a profile field.

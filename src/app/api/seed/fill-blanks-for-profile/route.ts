@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     const { data: profileRow, error: profileError } = await supabase
       .from("plant_profiles")
       .select(
-        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
+        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, soil_notes, seed_starting_notes, pest_disease_notes, harvest_notes, companion_notes, " +
           "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species, " +
           "field_provenance, enrichment_version, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, hardiness_zone_min, hardiness_zone_max"
       )
@@ -223,9 +223,14 @@ export async function POST(req: Request) {
     const stillMissingSeedContext = blankStr("seed_propagation_context");
     const stillMissingLifecycle = blankStr("lifecycle");
     const stillMissingCategory = blankStr("plant_category");
+    // Sprint 10 per-section notes: a profile lacking ANY section note (e.g. a v3 row that predates
+    // these columns) still needs an AI pass to populate them on self-heal.
+    const stillMissingSectionNotes =
+      blankStr("soil_notes") || blankStr("seed_starting_notes") || blankStr("pest_disease_notes") ||
+      blankStr("harvest_notes") || blankStr("companion_notes");
     const hasOtherBlanks =
       stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving || stillMissingSeedContext ||
-      stillMissingLifecycle || stillMissingCategory;
+      stillMissingLifecycle || stillMissingCategory || stillMissingSectionNotes;
     const needAi = (useGemini && (stillMissingHero || stillMissingDescription || hasOtherBlanks)) || bypassCache;
 
     if (needAi) {
@@ -341,6 +346,11 @@ export async function POST(req: Request) {
           setStr("propagation_notes", dStr("propagation_notes"));
           setStr("seed_saving_notes", dStr("seed_saving_notes"));
           setStr("seed_propagation_context", dStr("seed_propagation_context"));
+          setStr("soil_notes", dStr("soil_notes"));
+          setStr("seed_starting_notes", dStr("seed_starting_notes"));
+          setStr("pest_disease_notes", dStr("pest_disease_notes"));
+          setStr("harvest_notes", dStr("harvest_notes"));
+          setStr("companion_notes", dStr("companion_notes"));
           setStr("mature_height", dStr("mature_height"));
           setStr("mature_width", dStr("mature_width"));
           setStr("lifecycle", dStr("lifecycle"));

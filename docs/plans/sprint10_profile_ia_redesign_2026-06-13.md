@@ -2,6 +2,28 @@
 
 > Plan-doc + 4-pass audit. Worktree `sprint10-profile-ia` based off `origin/main` @ `af05aac`.
 > Greenlit by Syd 2026-06-13 ("take the wheel" on profile IA). Replaces original Sprint 10 (filter cleanup → Sprint 11).
+>
+> **Core ship landed `52a5f2e` (10-card reorder + sectioned Growing Notes + Seed Starting split + v3 prompt).**
+
+---
+
+## ADDENDUM 2026-06-13 22:11 — per-section "Notes ▾" expanders (hybrid layer)
+
+Syd: each major card gets a preset-collapsed "Notes ▾" toggle revealing topic-specific deep detail; the cross-cutting bottom Growing Notes stays. Three reader modes: beginner-skim / topic-curious / deep-reader.
+
+**Sourcing audit:**
+- Sun / Water → existing `sun_detail` / `water_detail` columns (AI-populated; removed from display in #51). **No schema.**
+- Soil / Seed Starting / Pest+Disease / Harvest / Companion → **NO existing narrative column → new columns required** (`soil_notes`, `seed_starting_notes`, `pest_disease_notes`, `harvest_notes`, `companion_notes`).
+
+**Expander primitive:** small bottom-of-card `<button>Notes <ChevronDown/></button>` (anchor: existing SectionCard chevron register), conditional-on-content (only renders when the section's note field is non-empty). Collapse state reuses `aboutCollapsed`/`toggleAboutSection` with `<section>Notes` keys.
+
+**AI Fill:** add the 5 new note fields to `researchVariety.ts` FIELD_LIST as TIGHT topic-specific notes, explicitly differentiated from the comprehensive cross-cutting `growing_notes` sections (anti-duplication is prompt-engineered — the #51 risk). Bump `CURRENT_AI_FILL_VERSION` 3→4 so all profiles re-fill for the new fields. Plumbing: PlantProfile type, fill-blanks-for-profile mapping, enrich-from-name select+write, fillBlanksCache, edit form (optional).
+
+**Schema gate:** the 5-column migration is HELD for Syd's explicit greenlight (her own carve-out). Sun/Water-only expanders are no-schema and shippable independently as a phase-1 increment.
+
+**Coherence flags for Syd:** (1) revives per-section Sun/Water depth that #51 just removed (now collapsed/opt-in); (2) duplication safeguard lives entirely in the tight-vs-comprehensive prompt split.
+
+**Status: PLAN UPDATED, HELD for sourcing/schema decision (see chat asks). No code written for the addendum.**
 
 ---
 

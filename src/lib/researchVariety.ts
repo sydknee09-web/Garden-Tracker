@@ -85,6 +85,13 @@ const FIELD_LIST = `Extract the following and return a single JSON object only (
 - avoid_plants: comma-separated list of plants to avoid planting nearby (e.g. "Potatoes, Fennel"). Use empty string if not found.
 - harvest_season: comma-separated list from {Early, Mid, Late} x {Spring, Summer, Fall, Winter}, e.g. "Mid Summer, Late Summer". Use empty string if not a harvested plant.
 
+Per-section notes — TIGHT, topic-specific deep detail for each profile section, 2-3 sentences each. These are DISTINCT from growing_notes (which is the comprehensive cross-cutting care narrative): each note below covers ONLY its own topic, tightly, with detail that goes a level deeper than the section's pills — do NOT restate the growing_notes sections. Use empty string when you have nothing to add beyond the pills/structured values.
+- soil_notes: 2-3 sentences of soil/site specifics — ideal texture and pH, drainage needs, container-vs-ground considerations. Deeper than the one-word soil_preference pill, but soil-only.
+- seed_starting_notes: 2-3 sentences on starting THIS plant from seed — indoor vs. direct timing relative to last frost, germination temperature, light-to-germinate, and hardening-off. Seed-starting only (not transplanting an established plant, not seed-saving).
+- pest_disease_notes: 2-3 sentences naming the specific pests/diseases most likely on this plant and the practical first response for each. Deeper than the disease_susceptibility pills.
+- harvest_notes: 2-3 sentences on harvest cues (how to tell it's ready), technique, and handling/storage; mention succession or cut-and-come-again if it applies. Empty string for non-harvested plants.
+- companion_notes: 2-3 sentences on WHY the good companions help and why the bad ones hurt (pest deterrence, nitrogen, shade, allelopathy). Deeper than the companion/avoid pill lists.
+
 Classification tags — pick from the EXACT vocabulary, single value each:
 - lifecycle: one of "Annual", "Biennial", "Perennial". (Worked examples: Apple=Perennial, Tomato=Annual, Peony=Perennial, Grape=Perennial, Lavender=Perennial, Pothos=Perennial.)
 - growth_form: one of "Tree", "Shrub", "Vine", "Herbaceous", "Grass", "Groundcover", "Bulb", "Tuber". (Worked examples: Apple=Tree, Tomato=Herbaceous, Peony=Herbaceous, Grape=Vine, Lavender=Shrub, Pothos=Vine.)
@@ -151,6 +158,12 @@ export type ResearchVarietyResult = {
   propagation_method?: string;
   seed_saving_notes?: string;
   seed_propagation_context?: string;
+  // Sprint 10 per-section notes (tight, topic-specific; distinct from growing_notes).
+  soil_notes?: string;
+  seed_starting_notes?: string;
+  pest_disease_notes?: string;
+  harvest_notes?: string;
+  companion_notes?: string;
   companion_plants?: string;
   avoid_plants?: string;
   harvest_season?: string;
@@ -273,6 +286,11 @@ async function runResearchQuery(
     propagation_method: s("propagation_method"),
     seed_saving_notes: s("seed_saving_notes"),
     seed_propagation_context: s("seed_propagation_context"),
+    soil_notes: s("soil_notes"),
+    seed_starting_notes: s("seed_starting_notes"),
+    pest_disease_notes: s("pest_disease_notes"),
+    harvest_notes: s("harvest_notes"),
+    companion_notes: s("companion_notes"),
     companion_plants: s("companion_plants"),
     avoid_plants: s("avoid_plants"),
     harvest_season: s("harvest_season"),
