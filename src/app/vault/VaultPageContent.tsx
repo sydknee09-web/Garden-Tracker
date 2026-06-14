@@ -715,19 +715,21 @@ function VaultPageInner() {
     async (profileId: string, toUse: number, packets: SeedPacketRow[], packetOwnerId?: string) => {
       if (!user?.id || toUse <= 0) return true;
       const ownerId = packetOwnerId ?? user.id;
-      const now = new Date().toISOString();
       let need = toUse;
       for (const pk of packets) {
         const packetValue = pk.qty_status / 100;
         if (need >= packetValue - 1e-6) {
-          // Law 2 & 3: soft delete and archive when qty reaches 0
-          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", ownerId);
+          // Sprint 13: used-up = ARCHIVE (Law 3), NOT soft-delete. Consumption ≠ deletion —
+          // deleted_at is reserved for true user deletion (Law 2). Matches decrementPacket
+          // (completeSowTask) + every other consume path; keeps the packet visible in the
+          // profile "Used up (N)" subsection instead of vanishing it.
+          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", pk.id).eq("user_id", ownerId);
           need -= packetValue;
         } else {
           const remaining = Math.round((packetValue - need) * 100);
           const newQty = Math.max(0, Math.min(100, remaining));
           if (newQty <= 0) {
-            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", ownerId);
+            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", pk.id).eq("user_id", ownerId);
           } else {
             await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", ownerId);
           }
