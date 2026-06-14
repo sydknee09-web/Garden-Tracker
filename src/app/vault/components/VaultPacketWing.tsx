@@ -80,8 +80,8 @@ export type VaultPacketWingContextValue = {
   setFilteredPacketCount: React.Dispatch<React.SetStateAction<number>>;
   refineByOpen: boolean;
   setRefineByOpen: (v: boolean) => void;
-  refineBySection: "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null;
-  setRefineBySection: React.Dispatch<React.SetStateAction<"sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>>;
+  refineBySection: "plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null;
+  setRefineBySection: React.Dispatch<React.SetStateAction<"plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>>;
   hasPacketActiveFilters: boolean;
   clearPacketFilters: () => void;
   batchSelectMode: boolean;
@@ -226,7 +226,7 @@ export function VaultPacketWingProvider({
   const [filteredPacketIds, setFilteredPacketIds] = useState<string[]>([]);
   const [filteredPacketCount, setFilteredPacketCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"plantCategory" | "sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>(null);
   const [batchSelectMode, setBatchSelectMode] = useState(false);
   const [selectedPacketIds, setSelectedPacketIds] = useState<Set<string>>(new Set());
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -465,17 +465,6 @@ export function VaultPacketWingToolbar() {
           />
         </div>
       </div>
-      {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set (status, vendor, sow, tags…) stays in Refine drawer. */}
-      {ctx.packetPlantCategoryChips.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
-          <FilterChipGroup
-            chips={ctx.packetPlantCategoryChips}
-            selected={ctx.vaultFilters.filters.plantCategory}
-            onSelect={ctx.vaultFilters.setPlantCategory}
-            ariaLabelPrefix="Filter by category"
-          />
-        </div>
-      )}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
           <button
@@ -673,6 +662,7 @@ export function VaultPacketWingRefineModal() {
     setPacketSowMonth,
     packetAvailableTags,
     packetSeedTypeChips,
+    packetPlantCategoryChips,
     vaultFilters,
     packetHasDefault,
     setPacketHasDefault,
@@ -741,6 +731,32 @@ export function VaultPacketWingRefineModal() {
           </div>
         </header>
         <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Category */}
+          {(packetPlantCategoryChips ?? []).length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection?.((s) => (s === "plantCategory" ? null : "plantCategory"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "plantCategory"}
+              >
+                <span>Category</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantCategory" ? "▼" : "▸"}</span>
+              </button>
+              {refineBySection === "plantCategory" && (
+                <div className="px-4 pb-3 pt-0">
+                  <div className="flex flex-wrap gap-2">
+                    <FilterChipGroup
+                      chips={packetPlantCategoryChips ?? []}
+                      selected={vaultFilters?.filters.plantCategory ?? null}
+                      onSelect={(v) => vaultFilters?.setPlantCategory(v)}
+                      ariaLabelPrefix="Filter by category"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {/* Sort */}
           <div className="border-b border-black/5">
             <button

@@ -86,7 +86,7 @@ function GardenPageInner() {
   const [plantCategoryChips, setPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
   const [filteredCount, setFilteredCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"plantCategory" | "plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
   const [refineChips, setRefineChips] = useState<RefineChips | null>(null);
 
   const profileParam = searchParams.get("profile");
@@ -513,18 +513,6 @@ function GardenPageInner() {
               </div>
             )}
 
-            {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set (Plant Type, variety, sun…) stays in Refine drawer; bed/group via GroupTabs. */}
-            {plantCategoryChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
-                <FilterChipGroup
-                  chips={plantCategoryChips}
-                  selected={filters.filters.plantCategory}
-                  onSelect={filters.setPlantCategory}
-                  ariaLabelPrefix="Filter by category"
-                />
-              </div>
-            )}
-
             <div className="flex items-center gap-3 mb-2">
               <button
                 type="button"
@@ -607,6 +595,31 @@ function GardenPageInner() {
                 </div>
               </header>
               <div className="flex-1 min-h-0 overflow-y-auto">
+                {plantCategoryChips.length > 0 && (
+                  <div className="border-b border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setRefineBySection((s) => (s === "plantCategory" ? null : "plantCategory"))}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                      aria-expanded={refineBySection === "plantCategory"}
+                    >
+                      <span>Category</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantCategory" ? "▴" : "▾"}</span>
+                    </button>
+                    {refineBySection === "plantCategory" && (
+                      <div className="px-4 pb-3 pt-0">
+                        <div className="flex flex-wrap gap-2">
+                          <FilterChipGroup
+                            chips={plantCategoryChips}
+                            selected={filters.filters.plantCategory}
+                            onSelect={filters.setPlantCategory}
+                            ariaLabelPrefix="Filter by category"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="border-b border-black/5">
                   <button
                     type="button"

@@ -4,10 +4,12 @@ import type { StatusFilter, VaultSortBy } from "@/types/vault";
 import type { UseFilterStateReturn } from "@/hooks/useFilterState";
 import { getTagStyle } from "@/components/TagBadges";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { FilterChipGroup } from "@/components/FilterChipRow";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 export type GridRefineSection =
+  | "plantCategory"
   | "sort"
   | "vault"
   | "tags"
@@ -47,6 +49,7 @@ export interface VaultGridRefineModalProps {
   setSortDirection: (v: "asc" | "desc") => void;
   vaultFilters: UseFilterStateReturn<"vault">;
   vaultStatusChips: { value: StatusFilter; label: string; count: number }[];
+  plantCategoryChips: { value: string; count: number }[];
   seedTypeChips: { value: string; count: number }[];
   availableTags: string[];
   sowingMonthChips: { month: number; monthName: string; count: number }[];
@@ -69,6 +72,7 @@ export function VaultGridRefineModal({
   setSortDirection,
   vaultFilters,
   vaultStatusChips,
+  plantCategoryChips,
   seedTypeChips,
   availableTags,
   sowingMonthChips,
@@ -132,6 +136,33 @@ export function VaultGridRefineModal({
           </div>
         </header>
         <div className="flex-1 min-h-0 overflow-y-auto">
+          {plantCategoryChips.length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection((s) => (s === "plantCategory" ? null : "plantCategory"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "plantCategory"}
+              >
+                <span>Category</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
+                  {refineBySection === "plantCategory" ? "▼" : "▸"}
+                </span>
+              </button>
+              {refineBySection === "plantCategory" && (
+                <div className="px-4 pb-3 pt-0">
+                  <div className="flex flex-wrap gap-2">
+                    <FilterChipGroup
+                      chips={plantCategoryChips}
+                      selected={vaultFilters.filters.plantCategory}
+                      onSelect={vaultFilters.setPlantCategory}
+                      ariaLabelPrefix="Filter by category"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="border-b border-black/5">
             <button
               type="button"

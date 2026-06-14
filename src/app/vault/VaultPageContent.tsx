@@ -7,7 +7,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { StatusFilter, VaultSortBy } from "@/types/vault";
 import { LoadingState } from "@/components/LoadingState";
-import { FilterChipGroup } from "@/components/FilterChipRow";
 
 const SeedVaultView = dynamic(
   () => import("@/components/SeedVaultView").then((m) => ({ default: m.SeedVaultView })),
@@ -1125,18 +1124,6 @@ function VaultPageInner() {
               </div>
             </div>
 
-            {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set stays in Refine drawer. */}
-            {plantCategoryChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
-                <FilterChipGroup
-                  chips={plantCategoryChips}
-                  selected={gridFilters.filters.plantCategory}
-                  onSelect={gridFilters.setPlantCategory}
-                  ariaLabelPrefix="Filter by category"
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
                 {/* Add Variety inline button removed Ship A 2026-05-28 — moved to FAB menu chip. */}
@@ -1248,6 +1235,7 @@ function VaultPageInner() {
           setSortDirection={setSortDirection}
           vaultFilters={gridFilters}
           vaultStatusChips={vaultStatusChips}
+          plantCategoryChips={plantCategoryChips}
           seedTypeChips={seedTypeChips}
           availableTags={availableTags}
           sowingMonthChips={sowingMonthChips}
