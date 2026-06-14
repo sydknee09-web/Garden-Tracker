@@ -1,6 +1,6 @@
 # Garden Tracker — STATUS (single source of truth)
 
-**Last updated:** 2026-06-14 (built from Syd's 16:25 process feedback — naming + status visibility)
+**Last updated:** 2026-06-14 (Sprint 12 Phase 1 — archive consistency bundle shipped `68f015d`)
 
 > **What this doc is.** The ONE place to check "where are we right now." Scannable, mobile-friendly, plain language. When Syd asks for "status" or "the plan," this is the answer — not a paraphrase.
 >
@@ -30,13 +30,13 @@ Syd's 2026-06-14 feedback was right: there have been **three different "Sprint" 
 
 ## A) Where we are right now
 
-**Date:** 2026-06-14. **Latest shipped code:** `13c4770` (origin/main HEAD).
+**Date:** 2026-06-14. **Latest shipped code:** `68f015d` (Sprint 12 Phase 1 — archive consistency bundle).
 
 - **Just shipped (counter #3):** **Sprint 11.5 Phase 2b — full filter sweep** across Library / Packets / Garden (`13c4770`, today 09:25). The refine modals were restructured: Category-first, Plant Name multi-select, Plant-in-[Month] picker, inventory toggles, "More filters" disclosure. Phase 2a (`5294a51`) + the #28 canonical category chip row (`a9cfa6f`) landed just before it.
 - **No code work is mid-flight right now.** The filter sweep was the last in-flight engineering item and it merged. The active work in *this* chat is **Foundation doc-hygiene** — creating this STATUS.md + locking the Sprint.Phase naming convention.
 - **v1 readiness:** **~83% to the v1 ship gate** (from the 2026-05-30 math; the large body of June work since then is dogfood polish + IA refinement, not new v1-gate chapters). The remaining v1 blockers are **Syd dashboard actions**, not code — see [§ G](#g-v1-launch-checklist).
 
-> **One-line address today:** *"Sprint 11.5 Phase 2b (filter sweep) just shipped — counter #3 is the live line. No code in flight; doc-hygiene (this STATUS doc + naming lock) is the current task."*
+> **One-line address today:** *"Sprint 12 Phase 1 (archive consistency bundle) just shipped — counter #3 is the live line. No code in flight."*
 
 ---
 
@@ -62,6 +62,7 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 
 | Address | Scope | Origin | Status |
 |---|---|---|---|
+| **Sprint 12 Phase 1** | Archive consistency bundle: profile Packets/Plants counts exclude archived + used-up (+ "Used up (N)" / "Past plantings (N)" subsections); retire dev Archived Plantings browser into guarded Planting History delete; fix stale copy — `68f015d` | [Foundation] | ✅ SHIPPED (today) |
 | **Sprint 11.5 Phase 2b** | Full filter sweep (Library/Packets/Garden refine modals) — `13c4770` | [Dogfood] | ✅ SHIPPED (today) |
 | **Sprint 11.5 Phase 2a** | Relocate plant_category chips into Filter modal (first Category section) — `5294a51` | [Dogfood] | ✅ SHIPPED |
 | **Sprint 11.5 #28** | Canonical plant_category primary chip row — `a9cfa6f` | [Dogfood] | ✅ SHIPPED |
@@ -82,15 +83,7 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 
 ## C) In flight right now
 
-| Field | Value |
-|---|---|
-| **Address** | Foundation — STATUS doc + Sprint.Phase naming lock (this chat) |
-| **Scope** | Create `STATUS.md` single source of truth + lock the naming convention in CLAUDE.md |
-| **Trigger** | [Foundation] — Syd 2026-06-14 16:25 process feedback (overlapping numbering + no single status doc) |
-| **Where** | Worktree off `origin/main` (`13c4770`); shipped via temp branch → `main`. Shared checkout's parked branch `feat/instance-detail-page` @ `97ee7c3` left untouched |
-| **Push tier** | Auto-push (doc-only — no schema/RLS/data-loss) |
-
-*(No engineering work is mid-flight — the Sprint 11.5 filter sweep was the last code item and it merged.)*
+**Nothing in flight.** Sprint 12 Phase 1 (archive consistency bundle, `68f015d`) was the last code item and it shipped to `main`. The prior Foundation work (STATUS doc + Sprint.Phase naming lock, `49f13bb`) also merged. Awaiting Syd's next dogfood batch / priority call to open the next phase.
 
 ---
 
@@ -104,7 +97,8 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 | `e15685d` | (polish) | Universal canonical X-close on all modals |
 | `a9cfa6f` | Sprint 11.5 #28 (#3) | Canonical plant_category primary chip row |
 | `5294a51` | Sprint 11.5 Phase 2a (#3) | Relocate category chips into Filter modal |
-| `13c4770` | Sprint 11.5 Phase 2b (#3) | **Full filter sweep across Library/Packets/Garden** ← HEAD |
+| `13c4770` | Sprint 11.5 Phase 2b (#3) | **Full filter sweep across Library/Packets/Garden** |
+| `68f015d` | Sprint 12 Phase 1 (#3) | **Archive consistency bundle** — profile Packets/Plants counts exclude archived/used-up (+ Used-up/Past subsections); dev archive browser → guarded Planting History delete ← HEAD |
 
 *(Full ship history with hashes + dogfood paths: `docs/ROADMAP.md` §5 + §6.)*
 
@@ -116,7 +110,7 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 |---|---|---|
 | Sprint 5 MUST #13 (#1) | L1 PITR enable/skip decision + L2 restore drill | **Syd** — ~30 min dashboard actions; the last v1-gate code-independent blockers |
 | Sprint 5 L5 (#1) | Backup retention/tier dashboard confirmation | **Syd** — ~5 min dashboard check |
-| Next structural work (#3) | TBD — dogfood-driven; would open **Sprint 12** | Awaiting Syd's next dogfood batch / priority call |
+| Next structural work (#3) | TBD — dogfood-driven; **Sprint 12 is now open** (Phase 1 shipped `68f015d`) | Awaiting Syd's next dogfood batch / priority call |
 | CAN bucket (`gt_v1_scope §2.3`) | Zone-aware library schema, weather notifications, Calendar widget redesign, standalone-profile audit | **Post-v1** — explicitly deferred, ship as v1.x |
 
 ---
@@ -157,7 +151,8 @@ Source: `gt_v1_scope.md §3` (6 items, from the 2026-05-28 Supabase + backup aud
 
 | Date | Address | What changed |
 |---|---|---|
-| 2026-06-14 | Foundation (this chat) | **Created STATUS.md** + locked Sprint.Phase naming convention in CLAUDE.md. Documented the 3 colliding counters; flagged ROADMAP/PROJECT_STATUS drift. |
+| 2026-06-14 | Sprint 12 Phase 1 (#3) | `68f015d` — archive consistency bundle: profile Packets/Plants counts exclude archived + used-up (+ Used-up/Past subsections); retired dev Archived Plantings browser into guarded Planting History permanent-delete; fixed stale "Settings → Archived Plantings" copy. |
+| 2026-06-14 | Foundation | **Created STATUS.md** + locked Sprint.Phase naming convention in CLAUDE.md. Documented the 3 colliding counters; flagged ROADMAP/PROJECT_STATUS drift. |
 | 2026-06-14 | Sprint 11.5 Phase 2b (#3) | `13c4770` — full filter sweep across Library/Packets/Garden. |
 | 2026-06-14 | Sprint 11.5 Phase 2a + #28 (#3) | `5294a51` + `a9cfa6f` — category chips into Filter modal. |
 | 2026-06-13/14 | Sprint 11 (#3) | `8ddfd30` + `d76d880` — shed layout + modal X-close + Notes-expander removal. |
