@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { setSupplyReviewData, type SupplyReviewItem } from "@/lib/supplyReviewStorage";
@@ -304,7 +305,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
             <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black flex-1 text-center">
               {step === "capture" ? "Photo Import" : "Extracting…"}
             </h2>
-            <div className="w-11 shrink-0" aria-hidden />
+            <ModalCloseButton onClick={onClose} />
           </div>
         </div>
 

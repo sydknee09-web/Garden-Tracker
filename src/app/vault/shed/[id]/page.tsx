@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { QuickLogModal } from "@/components/QuickLogModal";
@@ -408,9 +409,7 @@ export default function VaultShedDetailPage() {
                 <h2 id="shed-set-photo-title" className="text-lg font-semibold text-neutral-900">Set Product Photo</h2>
                 <p className="text-sm text-neutral-500 mt-0.5">Take a photo or choose from files.</p>
               </div>
-              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex-shrink-0" aria-label="Close">
-                <ICON_MAP.Close stroke="currentColor" className="w-6 h-6" />
-              </button>
+              <ModalCloseButton onClick={() => setShowSetPhotoModal(false)} className="flex-shrink-0" />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {thumbUrl && (

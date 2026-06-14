@@ -15,6 +15,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { logEvent } from "@/lib/debugLog";
 
 export interface AddVarietySuccessOpts {
@@ -192,7 +193,7 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
           <h2 id="add-variety-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
             Add to Library
           </h2>
-          <div className="w-11 shrink-0" aria-hidden />
+          <ModalCloseButton onClick={onClose} />
         </div>
         <p className="text-sm text-neutral-500 text-center">
           Save a variety to your plant encyclopedia. Add a packet later when you buy.

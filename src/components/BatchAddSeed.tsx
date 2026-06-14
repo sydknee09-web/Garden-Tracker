@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -540,7 +541,7 @@ export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = f
             <h2 id="batch-add-title" className="text-lg font-semibold text-black flex-1 text-center">
               {step === "capture" ? "Photo Import" : step === "extracting" ? "Extracting…" : "Confirm & Save"}
             </h2>
-            <div className="w-11 shrink-0" aria-hidden />
+            <ModalCloseButton onClick={onClose} />
           </div>
         </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -390,7 +391,7 @@ export function SupplyForm({
           <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
             {isEdit ? "Edit Supply" : step === "choose" ? "Add Supply" : step === "link" ? "Import from Link" : "Add Supply"}
           </h2>
-          <div className="w-11 shrink-0" aria-hidden />
+          <ModalCloseButton onClick={onClose} />
         </div>
       </div>
 

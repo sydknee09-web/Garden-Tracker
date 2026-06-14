@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import type { Volume } from "@/types/vault";
@@ -114,9 +115,12 @@ export function AddPlantManualModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-manual-title">
       <div className="relative bg-white rounded-3xl shadow-xl border border-neutral-200/80 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
-        <h2 id="add-plant-manual-title" className="text-lg font-bold text-neutral-900 mb-4">
-          Add Seed Packet
-        </h2>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <h2 id="add-plant-manual-title" className="text-lg font-bold text-neutral-900">
+            Add Seed Packet
+          </h2>
+          <ModalCloseButton onClick={onClose} />
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="add-plant-manual-vendor" className="block text-sm font-medium text-neutral-700 mb-1">

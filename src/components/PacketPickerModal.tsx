@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -97,8 +98,13 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
       <div ref={trapRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex-shrink-0 p-5 border-b border-neutral-200">
-          <h2 className="text-lg font-semibold text-neutral-900">Choose Seed Packets</h2>
-          <p className="text-sm text-neutral-500 mt-1">Select which packet(s) to use and how much of each.</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-neutral-900">Choose Seed Packets</h2>
+              <p className="text-sm text-neutral-500 mt-1">Select which packet(s) to use and how much of each.</p>
+            </div>
+            <ModalCloseButton onClick={onClose} />
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">

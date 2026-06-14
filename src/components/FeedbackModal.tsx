@@ -7,6 +7,7 @@ import { compressImage } from "@/lib/compressImage";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useVoiceRecorder, formatElapsed, VOICE_MAX_DURATION_MS } from "@/hooks/useVoiceRecorder";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { getEntries, formatEntriesForCopy } from "@/lib/debugLogBuffer";
 import { APP_VERSION } from "@/lib/appVersion";
 
@@ -218,13 +219,16 @@ export function FeedbackModal({
         aria-labelledby="feedback-title"
         onKeyDown={handleKeyDown}
       >
-        <div className="flex-shrink-0 flex items-center gap-2 p-4 border-b border-black/5">
-          <span className="text-emerald-600" aria-hidden>
-            <WrenchIcon />
-          </span>
-          <h2 id="feedback-title" className="text-lg font-semibold text-black">
-            Send Feedback
-          </h2>
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 p-4 border-b border-black/5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-emerald-600" aria-hidden>
+              <WrenchIcon />
+            </span>
+            <h2 id="feedback-title" className="text-lg font-semibold text-black">
+              Send Feedback
+            </h2>
+          </div>
+          <ModalCloseButton onClick={handleClose} />
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           <p className="text-sm text-black/60">

@@ -20,6 +20,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { logEvent } from "@/lib/debugLog";
 import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
 import { GroupSelectField } from "@/components/GroupSelectField";
@@ -651,7 +652,7 @@ export function AddPlantModal({
                 <div className="w-11 shrink-0" aria-hidden />
               )}
               <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Plant</h2>
-              <div className="w-11 shrink-0" aria-hidden />
+              <ModalCloseButton onClick={onClose} />
             </div>
             <p className="text-sm text-neutral-500 text-center">Link to an existing variety or add a new one.</p>
           </div>

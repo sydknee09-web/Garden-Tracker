@@ -412,10 +412,10 @@ export function JournalEntryForm({
               <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
             </button>
           ) : (
-            <ModalCloseButton onClick={onClose} />
+            <div className="w-11 shrink-0" aria-hidden />
           )}
           <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Journal</h2>
-          <div className="w-11 shrink-0" aria-hidden />
+          <ModalCloseButton onClick={onClose} />
         </div>
       </div>
 

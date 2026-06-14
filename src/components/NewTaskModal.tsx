@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
@@ -274,7 +275,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
             {editTask ? "Edit Task" : "New Task"}
           </h2>
-          <div className="w-11 shrink-0" aria-hidden />
+          <ModalCloseButton onClick={onClose} />
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4">

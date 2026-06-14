@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
@@ -615,7 +616,7 @@ export function SeedPacketForm({
           >
             {modalTitle}
           </h2>
-          <div className="w-11 shrink-0" aria-hidden />
+          <ModalCloseButton onClick={onClose} />
         </div>
       </div>
 

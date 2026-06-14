@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { compressImage } from "@/lib/compressImage";
 import { coverEntryHasPhoto, type CoverEntryLike } from "@/lib/coverPhoto";
@@ -166,8 +167,13 @@ export function CoverPhotoSheet({ growId, ownerId, currentUserId, plantProfileId
           aria-labelledby="cover-photo-title"
         >
           <div className="flex-shrink-0 px-5 pt-5 pb-3 border-b border-neutral-200">
-            <h2 id="cover-photo-title" className="text-lg font-semibold text-neutral-900">Cover Photo</h2>
-            <p className="text-sm text-neutral-500 mt-0.5">Choose the photo that represents this planting.</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 id="cover-photo-title" className="text-lg font-semibold text-neutral-900">Cover Photo</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">Choose the photo that represents this planting.</p>
+              </div>
+              <ModalCloseButton onClick={onClose} />
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {loading ? (

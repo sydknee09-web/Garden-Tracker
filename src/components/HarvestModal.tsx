@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
@@ -146,8 +147,13 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
       <div ref={trapRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex-shrink-0 p-5 border-b border-neutral-200">
-          <h2 className="text-lg font-semibold text-neutral-900">Log Harvest</h2>
-          <p className="text-sm text-neutral-500 mt-1">{displayName}</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-neutral-900">Log Harvest</h2>
+              <p className="text-sm text-neutral-500 mt-1">{displayName}</p>
+            </div>
+            <ModalCloseButton onClick={onClose} />
+          </div>
           {errorMessage && (
             <p className="mt-2 text-sm text-red-600" role="alert">{errorMessage}</p>
           )}

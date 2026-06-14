@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertManyWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -95,9 +96,12 @@ export function AddItemModal({ open, onClose, onSuccess, onErrorToast }: AddItem
         className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-black/10 p-5 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="add-item-title" className="text-lg font-semibold text-neutral-900 mb-3">
-          Add Item
-        </h2>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 id="add-item-title" className="text-lg font-semibold text-neutral-900">
+            Add Item
+          </h2>
+          <ModalCloseButton onClick={onClose} />
+        </div>
         <p className="text-sm text-neutral-500 mb-4">
           Add plants or supplies by name.
         </p>

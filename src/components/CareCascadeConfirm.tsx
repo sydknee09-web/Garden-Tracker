@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 export type CascadeAction = "create" | "edit";
 
@@ -67,9 +68,12 @@ export function CareCascadeConfirm({ open, action, eligibleCount, locallyEditedC
         aria-modal="true"
         aria-labelledby="care-cascade-confirm-title"
       >
-        <h2 id="care-cascade-confirm-title" className="font-semibold text-neutral-900 text-base mb-1">
-          {heading}
-        </h2>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <h2 id="care-cascade-confirm-title" className="font-semibold text-neutral-900 text-base">
+            {heading}
+          </h2>
+          <ModalCloseButton onClick={handleCancel} />
+        </div>
         <p className="text-sm text-neutral-500 mb-4">{body}</p>
 
         {showSubPrompt && (

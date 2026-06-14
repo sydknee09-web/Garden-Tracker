@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 export type CropShape = "square" | "circle";
 
@@ -344,9 +345,13 @@ export function ImageCropModal({
         aria-modal="true"
         aria-labelledby="crop-modal-title"
       >
-        <h2 id="crop-modal-title" className="text-lg font-semibold text-neutral-900 mb-2 text-center">
-          Crop Image
-        </h2>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-11 shrink-0" aria-hidden />
+          <h2 id="crop-modal-title" className="text-lg font-semibold text-neutral-900 flex-1 text-center">
+            Crop Image
+          </h2>
+          <ModalCloseButton onClick={onClose} />
+        </div>
         <div className="flex items-center justify-center gap-2 mb-2">
           <button
             type="button"

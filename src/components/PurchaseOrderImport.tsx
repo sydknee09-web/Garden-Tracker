@@ -12,6 +12,7 @@ import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import type { SupplyOrderLineItem } from "@/app/api/supply/extract-order/route";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -303,7 +304,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
             <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black flex-1 text-center">
               Purchase Order Import
             </h2>
-            <div className="w-11 shrink-0" aria-hidden />
+            <ModalCloseButton onClick={onClose} />
           </div>
         </div>
 

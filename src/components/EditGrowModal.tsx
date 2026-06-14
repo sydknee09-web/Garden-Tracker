@@ -13,6 +13,7 @@ import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { CoverPhotoSheet } from "@/components/CoverPhotoSheet";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import type { GrowInstance } from "@/types/garden";
 
 /**
@@ -190,12 +191,17 @@ export function EditGrowModal({
       <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
         <div className="relative bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
           <div className="flex-shrink-0 px-6 pt-6 pb-3 border-b border-neutral-200">
-            <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
-            {/* Stacked-italic variety (VISION §8) — no parens; two skimmable lines. */}
-            <p className="text-sm text-neutral-500 mt-0.5">{profileName}</p>
-            {profileVarietyName?.trim() ? (
-              <p className="text-sm italic text-neutral-600">{profileVarietyName}</p>
-            ) : null}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
+                {/* Stacked-italic variety (VISION §8) — no parens; two skimmable lines. */}
+                <p className="text-sm text-neutral-500 mt-0.5">{profileName}</p>
+                {profileVarietyName?.trim() ? (
+                  <p className="text-sm italic text-neutral-600">{profileVarietyName}</p>
+                ) : null}
+              </div>
+              <ModalCloseButton onClick={onClose} />
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
