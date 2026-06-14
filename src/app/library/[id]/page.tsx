@@ -703,7 +703,6 @@ export default function VaultSeedPage() {
   // (timing lives in "When to Plant"; germination is seed-lot-specific → Seed Packet detail).
   // Sowing Method/Depth hidden for non-seed-propagated plants; Days to Maturity hidden for woody
   // perennials (trees/shrubs) where a "days" value is nonsense. Underlying columns + AI Fill untouched.
-  const plantingDepth = (profile as PlantProfile).planting_depth;
   const isPerennialWoody =
     profile.lifecycle === "Perennial" && (profile.growth_form === "Tree" || profile.growth_form === "Shrub");
   const propMethods = (profile.propagation_method ?? []).map((m) => m.trim()).filter(Boolean);
@@ -729,7 +728,6 @@ export default function VaultSeedPage() {
     ? [
         { label: "Sowing Method", value: displaySowing || "—" },
         { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") },
-        { label: "Planting Depth", value: plantingDepth != null ? `${plantingDepth} ${plantingDepth === 1 ? "inch" : "inches"}` : "—" },
         { label: "Days to Germination", value: ((effectiveCare?.days_to_germination ?? (profile as { days_to_germination?: string | null }).days_to_germination?.trim()) || "—") },
       ]
     : [];

@@ -147,32 +147,6 @@ function SubHeader({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">{children}</p>;
 }
 
-/**
- * Sprint 10 per-section "Notes ▾" expander. Collapsed by default; reveals tight topic-specific
- * depth for ITS section only (distinct from the cross-cutting Growing Notes card at the bottom).
- * Conditional-on-content — renders nothing when the section has no note, so cards without a note
- * never show an empty toggle. Chevron matches the SectionCard chevron register (chrome icon split).
- */
-function SectionNotes({ text }: { text?: string | null }) {
-  const [open, setOpen] = useState(false);
-  const body = text?.trim();
-  if (!body) return null;
-  return (
-    <div className="mt-2 border-t border-neutral-100 pt-1">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 min-h-[44px] text-xs font-medium text-neutral-500 hover:text-neutral-700"
-        aria-expanded={open}
-      >
-        Notes
-        {open ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}
-      </button>
-      {open && <p className="text-sm text-neutral-700 whitespace-pre-wrap mt-1">{body}</p>}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Enrichment-versioning loading states (2026-06-13). Skeleton lines use the
 // canonical bg-neutral-200 rounded animate-pulse token (PageSkeleton); the spinner
@@ -638,18 +612,9 @@ export function VaultProfileAboutTab({
           ))}
         </dl>
         <dl className="mt-4 space-y-4">
-          <div>
-            <PillDetailField label="Sun" value={sunPill} pill />
-            {!isLegacy && <SectionNotes text={profile.sun_detail} />}
-          </div>
-          <div>
-            <PillDetailField label="Water" value={waterPill} pill />
-            {!isLegacy && <SectionNotes text={profile.water_detail} />}
-          </div>
-          <div>
-            <PillDetailField label="Soil" value={isLegacy ? null : profile.soil_preference} pill />
-            {!isLegacy && <SectionNotes text={profile.soil_notes} />}
-          </div>
+          <PillDetailField label="Sun" value={sunPill} pill />
+          <PillDetailField label="Water" value={waterPill} pill />
+          <PillDetailField label="Soil" value={isLegacy ? null : profile.soil_preference} pill />
         </dl>
         <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, HOW_TO_GROW_PROVENANCE_FIELDS)} />
       </SectionCard>
@@ -668,7 +633,6 @@ export function VaultProfileAboutTab({
             ))}
           </dl>
           {seedStartingHowTo && <p className="mt-3 text-sm text-neutral-700">{seedStartingHowTo}</p>}
-          <SectionNotes text={profile.seed_starting_notes} />
         </SectionCard>
       )}
 
@@ -681,7 +645,6 @@ export function VaultProfileAboutTab({
           onToggle={() => toggleAboutSection("pestDisease")}
         >
           <dl><PillDetailField label="Susceptibility" values={profile.disease_susceptibility} pill /></dl>
-          <SectionNotes text={profile.pest_disease_notes} />
         </SectionCard>
       )}
 
@@ -694,7 +657,6 @@ export function VaultProfileAboutTab({
           onToggle={() => toggleAboutSection("harvest")}
         >
           <dl><PillDetailField label="Harvest Season" values={profile.harvest_season} pill /></dl>
-          <SectionNotes text={profile.harvest_notes} />
         </SectionCard>
       )}
 
@@ -740,7 +702,6 @@ export function VaultProfileAboutTab({
             <p className="text-sm text-neutral-500">None known</p>
           );
         })()}
-        {!isLegacy && <SectionNotes text={profile.companion_notes} />}
       </SectionCard>
 
       {/* ── 8. Characteristics Deep-Dive — collapsed by default; advanced taxonomy (Sprint 10) ── */}
