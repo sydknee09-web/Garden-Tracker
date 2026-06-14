@@ -10,6 +10,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 export type BatchLogBatch = {
   id: string;
@@ -364,14 +365,7 @@ export function BatchLogSheet({
               <p className="text-xs text-neutral-500 mt-0.5 truncate">{firstBatch.location.trim()}</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100 -mr-2"
-            aria-label="Close"
-          >
-            <ICON_MAP.Close className="w-5 h-5" />
-          </button>
+          <ModalCloseButton onClick={onClose} className="-mr-2" />
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-1 space-y-4">

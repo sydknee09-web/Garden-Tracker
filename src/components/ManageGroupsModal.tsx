@@ -19,6 +19,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import type { Group } from "@/types/garden";
 
 /**
@@ -378,14 +379,7 @@ export function ManageGroupsModal({
             >
               Manage Groups
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Close"
-            >
-              <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-            </button>
+            <ModalCloseButton onClick={onClose} />
           </div>
           <p className="text-sm text-neutral-500 text-center">
             Organize plants into custom groups for filtering in the Garden tab.

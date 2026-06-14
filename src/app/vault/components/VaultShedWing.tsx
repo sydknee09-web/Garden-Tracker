@@ -23,6 +23,7 @@ import {
   FILTER_DEFAULT_KEYS,
 } from "@/lib/filterDefaults";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 
 const ShedView = dynamic(
   () => import("@/components/ShedView").then((m) => ({ default: m.ShedView })),
@@ -585,14 +586,7 @@ export function VaultShedWingModals({
           >
             <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
               <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter</h2>
-              <button
-                type="button"
-                onClick={() => setShedFilterOpen(false)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-                aria-label="Close"
-              >
-                <span className="text-xl leading-none" aria-hidden>×</span>
-              </button>
+              <ModalCloseButton onClick={() => setShedFilterOpen(false)} />
             </header>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div>

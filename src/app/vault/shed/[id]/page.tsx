@@ -505,136 +505,132 @@ export default function VaultShedDetailPage() {
         </div>
       )}
 
-      <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
-        {showThumb ? (
-          <div className="aspect-video bg-white relative">
-            <img src={thumbUrl} alt="" className="w-full h-full object-contain" loading="lazy" onError={() => setThumbLoadFailed(true)} />
-            {canEdit && (
-              <div className="absolute bottom-3 right-3">
-                <button
-                  type="button"
-                  onClick={() => setShowSetPhotoModal(true)}
-                  disabled={photoSaving}
-                  className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                  aria-label="Change photo"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
-        ) : canEdit ? (
-          <div className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-3 p-6 bg-white min-h-[44px]">
-            {!shedSackFallbackFailed ? (
-              <img src="/shed-sack.png" alt="" className="w-24 h-24 object-contain" onError={() => setShedSackFallbackFailed(true)} />
-            ) : (
-              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
-            )}
+      {/* Shed product card — image is a SMALL identifier (Syd lock); product data is the focus. */}
+      <div className="rounded-xl bg-white border border-black/10 p-4 mb-6">
+        <div className="flex items-start gap-4">
+          {/* Small identifier thumbnail. Tappable to add/change photo when editable. */}
+          {canEdit ? (
             <button
               type="button"
               onClick={() => setShowSetPhotoModal(true)}
               disabled={photoSaving}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px] disabled:opacity-50"
-              aria-label="Add photo"
+              className="shrink-0 relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-neutral-100 border border-black/10 overflow-hidden flex items-center justify-center disabled:opacity-50"
+              aria-label={showThumb ? "Change photo" : "Add photo"}
             >
-              {photoSaving ? "Uploading…" : "Add Photo"}
-            </button>
-          </div>
-        ) : (
-          <div className="aspect-video bg-white flex items-center justify-center">
-            {!shedSackFallbackFailed ? (
-              <img src="/shed-sack.png" alt="" className="w-full h-full object-contain" onError={() => setShedSackFallbackFailed(true)} />
-            ) : (
-              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
-            )}
-          </div>
-        )}
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h2 className="text-xl font-bold text-neutral-900">{supply.name}</h2>
-              {supply.brand && <p className="text-neutral-600 text-sm">{supply.brand}</p>}
-              <span className="inline-block mt-1 text-xs text-neutral-500 bg-neutral-100 rounded px-2 py-0.5">
-                {SUPPLY_CATEGORY_LABELS[supply.category] ?? supply.category}
+              {showThumb ? (
+                <img src={thumbUrl} alt="" className="w-full h-full object-contain" loading="lazy" onError={() => setThumbLoadFailed(true)} />
+              ) : !shedSackFallbackFailed ? (
+                <img src="/shed-sack.png" alt="" className="w-10 h-10 object-contain opacity-60" onError={() => setShedSackFallbackFailed(true)} />
+              ) : (
+                <ShedSupplyIcon className="w-10 h-10 text-neutral-300" aria-hidden />
+              )}
+              <span className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-600" aria-hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
               </span>
-              {npk && (
-                <span className="ml-2 inline-block text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-0.5">
-                  N {npk.n}% | P {npk.p}% | K {npk.k}%
-                </span>
+            </button>
+          ) : (
+            <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-neutral-100 border border-black/10 overflow-hidden flex items-center justify-center">
+              {showThumb ? (
+                <img src={thumbUrl} alt="" className="w-full h-full object-contain" loading="lazy" onError={() => setThumbLoadFailed(true)} />
+              ) : !shedSackFallbackFailed ? (
+                <img src="/shed-sack.png" alt="" className="w-10 h-10 object-contain opacity-60" onError={() => setShedSackFallbackFailed(true)} />
+              ) : (
+                <ShedSupplyIcon className="w-10 h-10 text-neutral-300" aria-hidden />
               )}
             </div>
-            {canEdit && (
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleFillDetails}
-                  disabled={enriching || !session?.access_token}
-                  title="Fill product details from web"
-                  className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5 disabled:opacity-50"
-                >
-                  {enriching ? "…" : "★ Fill"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5"
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
-          {supply.application_rate && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-black/80">Application Rate</h3>
-              <p className="text-neutral-700">{supply.application_rate}</p>
-            </div>
-          )}
-          {supply.usage_instructions && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-black/80">Usage Instructions</h3>
-              <p className="text-neutral-700 whitespace-pre-wrap">{supply.usage_instructions}</p>
-            </div>
-          )}
-          {canEdit ? (
-            <div className="mt-4">
-              <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
-                Your notes
-              </label>
-              <textarea
-                id="supply-notes"
-                value={supply.notes ?? ""}
-                onChange={(e) => handleSaveNotes(e.target.value, false)}
-                onBlur={(e) => handleSaveNotes(e.target.value, true)}
-                placeholder="Optional notes for this product"
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                aria-label="Your notes"
-              />
-            </div>
-          ) : (
-            supply.notes?.trim() && (
-              <div className="mt-4">
-                <h3 className="text-sm font-medium text-black/80 mb-1">Your Notes</h3>
-                <p className="text-neutral-700 whitespace-pre-wrap">{supply.notes}</p>
+          {/* Identity + actions */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-neutral-900">{supply.name}</h2>
+                {supply.brand && <p className="text-neutral-600 text-sm">{supply.brand}</p>}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-block text-xs text-neutral-500 bg-neutral-100 rounded px-2 py-0.5">
+                    {SUPPLY_CATEGORY_LABELS[supply.category] ?? supply.category}
+                  </span>
+                  {npk && (
+                    <span className="inline-block text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-0.5">
+                      N {npk.n}% | P {npk.p}% | K {npk.k}%
+                    </span>
+                  )}
+                </div>
               </div>
-            )
-          )}
-          {supply.source_url && (
-            <a
-              href={supply.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-block text-sm text-emerald-600 hover:underline"
-            >
-              View product page →
-            </a>
-          )}
+              {canEdit && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleFillDetails}
+                    disabled={enriching || !session?.access_token}
+                    title="Fill product details from web"
+                    className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5 disabled:opacity-50"
+                  >
+                    {enriching ? "…" : "★ Fill"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Product data — the focus of a shed product page (Syd lock). */}
+        {supply.application_rate && (
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-black/80">Application Rate</h3>
+            <p className="text-neutral-700">{supply.application_rate}</p>
+          </div>
+        )}
+        {supply.usage_instructions && (
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-black/80">Usage Instructions</h3>
+            <p className="text-neutral-700 whitespace-pre-wrap">{supply.usage_instructions}</p>
+          </div>
+        )}
+        {canEdit ? (
+          <div className="mt-4">
+            <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
+              Your notes
+            </label>
+            <textarea
+              id="supply-notes"
+              value={supply.notes ?? ""}
+              onChange={(e) => handleSaveNotes(e.target.value, false)}
+              onBlur={(e) => handleSaveNotes(e.target.value, true)}
+              placeholder="Optional notes for this product"
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+              aria-label="Your notes"
+            />
+          </div>
+        ) : (
+          supply.notes?.trim() && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-black/80 mb-1">Your Notes</h3>
+              <p className="text-neutral-700 whitespace-pre-wrap">{supply.notes}</p>
+            </div>
+          )
+        )}
+        {supply.source_url && (
+          <a
+            href={supply.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-block text-sm text-emerald-600 hover:underline"
+          >
+            View product page →
+          </a>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">

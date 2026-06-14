@@ -23,6 +23,7 @@ import {
   FILTER_DEFAULT_KEYS,
 } from "@/lib/filterDefaults";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { getTagStyle } from "@/components/TagBadges";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import type { PacketStatusFilter } from "@/types/vault";
@@ -712,14 +713,7 @@ export function VaultPacketWingRefineModal() {
                 Clear filters
               </button>
             )}
-            <button
-              type="button"
-              onClick={closeModal}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-              aria-label="Close"
-            >
-              <span className="text-xl leading-none" aria-hidden>×</span>
-            </button>
+            <ModalCloseButton onClick={closeModal} />
           </div>
         </header>
         <div className="flex-1 min-h-0 overflow-y-auto">

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -851,7 +852,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
           <div className="fixed left-4 right-4 top-1/2 z-[111] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto" role="dialog" aria-modal="true" aria-labelledby="add-seed-title">
             <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
               <h2 id="add-seed-title" className="text-lg font-semibold text-black">Add Seed</h2>
-              <button type="button" onClick={() => { setAddSeedOpen(false); setAddSeedSearch(""); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5" aria-label="Close">×</button>
+              <ModalCloseButton onClick={() => { setAddSeedOpen(false); setAddSeedSearch(""); }} />
             </header>
             <div className="flex-1 overflow-y-auto p-4">
               <input

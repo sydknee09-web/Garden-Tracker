@@ -3,6 +3,7 @@
 import type { StatusFilter, VaultSortBy } from "@/types/vault";
 import type { UseFilterStateReturn } from "@/hooks/useFilterState";
 import { getTagStyle } from "@/components/TagBadges";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
@@ -127,14 +128,7 @@ export function VaultGridRefineModal({
                 Clear Filters
               </button>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-              aria-label="Close"
-            >
-              <span className="text-xl leading-none" aria-hidden>×</span>
-            </button>
+            <ModalCloseButton onClick={onClose} />
           </div>
         </header>
         <div className="flex-1 min-h-0 overflow-y-auto">

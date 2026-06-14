@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { GardenView, type GardenViewHandle } from "@/components/GardenView";
 import { GroupTabs, type SelectedGroup } from "@/components/GroupTabs";
@@ -585,9 +586,7 @@ function GardenPageInner() {
                       Clear Filters
                     </button>
                   )}
-                  <button type="button" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5" aria-label="Close">
-                    <span className="text-xl leading-none" aria-hidden>×</span>
-                  </button>
+                  <ModalCloseButton onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
                 </div>
               </header>
               <div className="flex-1 min-h-0 overflow-y-auto">

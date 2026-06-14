@@ -113,11 +113,19 @@ function PillDetailField({
     .map((v) => (v ?? "").trim())
     .filter(Boolean);
   const detailText = detail?.trim();
+  // Option-3 cohesion (Sprint 11 #66): every value display shares the neutral-100 container so
+  // How to Grow / Seed Starting read cohesively regardless of value length. Short values render as
+  // rounded-full pills; a long single value renders in the SAME container as a multi-line rounded
+  // box and spans the 2-col grid so it isn't cramped. Content shape varies; container stays constant.
+  const single = list.length === 1 ? list[0] : null;
+  const boxed = pill && single != null && (single.length > 22 || /[(/\n]/.test(single));
   return (
-    <div>
+    <div className={boxed ? "col-span-2" : undefined}>
       <dt className="text-xs text-neutral-500 mb-0.5">{label}</dt>
       {list.length === 0 ? (
         <dd className="text-sm text-neutral-900 font-medium">—</dd>
+      ) : boxed ? (
+        <dd className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm font-medium text-neutral-900 whitespace-pre-wrap">{single}</dd>
       ) : pill ? (
         <dd className="flex flex-wrap gap-1.5">
           {list.map((v) => (
@@ -624,9 +632,9 @@ export function VaultProfileAboutTab({
         isOpen={isAboutOpen("howToGrow")}
         onToggle={() => toggleAboutSection("howToGrow")}
       >
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
           {howToGrowList.map(({ label, value }) => (
-            <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
+            <PillDetailField key={label} label={label} value={value === "—" ? null : value} pill />
           ))}
         </dl>
         <dl className="mt-4 space-y-4">
@@ -654,9 +662,9 @@ export function VaultProfileAboutTab({
           isOpen={isAboutOpen("seedStarting")}
           onToggle={() => toggleAboutSection("seedStarting")}
         >
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
             {seedStartingList.map(({ label, value }) => (
-              <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
+              <PillDetailField key={label} label={label} value={value === "—" ? null : value} pill />
             ))}
           </dl>
           {seedStartingHowTo && <p className="mt-3 text-sm text-neutral-700">{seedStartingHowTo}</p>}

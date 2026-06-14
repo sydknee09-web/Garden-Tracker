@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
@@ -447,14 +448,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
       >
         <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
           <h2 id="edit-journal-title" className="text-lg font-semibold text-black">Edit Entry</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-            aria-label="Close"
-          >
-            <span className="text-xl leading-none" aria-hidden>×</span>
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface QRScannerModalProps {
@@ -78,14 +79,7 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
           <h2 id="qr-scanner-title" className="text-lg font-semibold text-black">
             Scan Seed Packet
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-black/60 hover:bg-black/5"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
         <div id={containerId} className="rounded-xl overflow-hidden bg-black/5 min-h-[200px]" />
         {error && <p className="mt-2 text-sm text-citrus">{error}</p>}
