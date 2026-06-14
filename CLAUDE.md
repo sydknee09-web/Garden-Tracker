@@ -48,6 +48,29 @@
 
 ---
 
+## Sprint.Phase naming convention (locked 2026-06-14)
+
+**The rule.** Every spawned work session, every plan doc, every commit message uses ONE hierarchical address format:
+
+```
+Sprint N Phase X: <description>  [Foundation | Dogfood | Polish]
+```
+
+- **N** = the sprint number on the **single canonical counter** tracked in [`STATUS.md`](STATUS.md). Do NOT start a new counter or reuse a low number — check STATUS.md for the current high-water mark first. (As of 2026-06-14 the live counter is the Dispatch continuation line; high-water mark = Sprint 11.5 Phase 2b; next new sprint = Sprint 12.)
+- **X** = the phase letter/number within that sprint (`1`, `2`, `2a`, `2b`, `3`, …). Sub-phases (`2a`/`2b`) are fine — Syd likes the spatial address; the requirement is *consistency*, not flatness.
+- **Origin tag** (bracketed, required):
+  - `[Foundation]` = roadmap/plan-driven structural work
+  - `[Dogfood]` = Syd-feedback-driven (cite the finding # when known)
+  - `[Polish]` = batched small cohesion/polish items
+
+**`STATUS.md` (repo root) is the single source of truth.** Update it on every state change (in-flight / shipped / queued). When the user asks for "status," "where are we," or "the plan overview," **reference `STATUS.md` — do not paraphrase from memory or re-derive from git log.**
+
+**Why this rule exists.** Syd flagged 2026-06-14 16:25 that overlapping numbering systems (the original `gt_v1_scope.md` Sprint 1–5, an ad-hoc June git-commit "Sprint 2/3/4 Chunk" re-count, and the Dispatch continuation "Sprint 6/8/9/10/11/11.5 Phase 2a/2b" line) plus the dogfood findings #1–70 left her with no single place to check state. The fix is NOT to flatten the numbering (she values the Sprint.Phase spatial address) — it's to run ONE counter consistently and keep ONE living doc. The three historical counters are documented in `STATUS.md §B`; going forward only one is live (see `STATUS.md → Going forward`).
+
+**Authority.** This is a process/cadence rule (CLAUDE.md tier per the capture-doc boundaries table). `STATUS.md` is the live-state register it points to.
+
+---
+
 ## 🔄 Chat Lifecycle Protocol (locked 2026-05-13)
 
 > Every chat traverses 5 phases. Each phase has a gate. No phase advances until its gate passes. This protocol stitches the existing rules (plan-audit standard, handling feedback batches, close-out) into a single chat-arc with hard gates between phases.
@@ -916,6 +939,7 @@ When a new user signal arrives during a chat, this table maps signal-type → de
 | Parked design decision awaiting user input | VISION.md §11 |
 | User communication / decision-making pattern | CLAUDE.md "User communication & decision-making patterns" section |
 | Process / cadence / discipline rule | CLAUDE.md (relevant rule section — Chat Lifecycle Protocol / Plan-audit standard / Push tiers / etc.) |
+| Live state — where we are / in-flight / shipped today / queued next | STATUS.md (repo root) — the single source of truth; per the Sprint.Phase naming convention |
 | Current-chunk progress / status change | ROADMAP.md §1 / §3 / §5 |
 | Locked-in decision dated | ROADMAP.md §6 |
 | Bug found / parked | BUGS.md (U-numbered entry) |

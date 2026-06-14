@@ -1,5 +1,7 @@
 # Project status & action plan
 
+> ⚠️ **SUPERSEDED (2026-06-14).** The live single source of truth is now [`/STATUS.md`](../STATUS.md) at the repo root. This file is a stale 2026-05-07 snapshot, kept for historical reference only. **For "where are we right now," read `/STATUS.md`.**
+
 **Purpose:** Living snapshot of where Seed Vault stands, which plans are authoritative, and what to do next. Update this when major milestones land or priorities shift.
 
 **Last updated:** 2026-05-07 (audit refresh; no code changes since 2026-04-06)
