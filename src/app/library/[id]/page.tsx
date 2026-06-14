@@ -612,9 +612,15 @@ export default function VaultSeedPage() {
     return () => clearTimeout(t);
   }, [heroPending]);
 
-  // Quick stats
-  const packetCount = packets.length;
-  const plantingsCount = growInstances.length;
+  // Quick stats. Counts reflect ONLY actionable items so the tab labels agree with
+  // the sibling surfaces (Garden hides archived; Library hides used-up packets):
+  //  - Packets (N): in-stock only — excludes the §8 OOS-equivalent (is_archived || qty<=0).
+  //    Used-up packets still render in the Packets tab's "Used up (N)" subsection.
+  //  - Plants (N): currently-growing only — matches GardenView's active-grow filter
+  //    (GardenView active = status 'growing' || null). Archived render in the Plants
+  //    tab's "Past plantings (N)" subsection.
+  const packetCount = packets.filter((p) => !(p.is_archived || (p.qty_status ?? 0) <= 0)).length;
+  const plantingsCount = growInstances.filter((g) => g.status === "growing" || g.status == null).length;
   const totalYield = useMemo(() => {
     const byUnit: Record<string, number> = {};
     journalEntries.forEach((j) => {

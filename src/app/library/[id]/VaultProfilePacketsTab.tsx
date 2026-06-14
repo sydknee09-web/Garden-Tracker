@@ -54,69 +54,87 @@ export function VaultProfilePacketsTab({
     );
   }
 
+  // §8 OOS-equivalent (VISION §8:509): used-up = archived OR no inventory. In-stock
+  // packets render first; used-up ones drop into a labeled "Used up (N)" subsection so
+  // the headline Packets (N) (in-stock only, page.tsx) stays coherent with the rows
+  // shown as actionable. Predicate mirrors the row-level isArchived below.
+  const isUsedUp = (pkt: SeedPacket) => pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
+  const inStockPackets = sortedPackets.filter((p) => !isUsedUp(p));
+  const usedUpPackets = sortedPackets.filter(isUsedUp);
+
+  const renderPacketRow = (pkt: SeedPacket) => {
+    const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
+    const extraImgs = packetImagesByPacketId.get(pkt.id) ?? [];
+    const pktImageUrl = getPacketImageUrls(pkt, extraImgs)[0] ?? null;
+    const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
+    return (
+      <li key={pkt.id} className={`flex items-center gap-1 pr-3 ${isArchived ? "bg-neutral-50" : ""}`}>
+        {/* Row body links to the canonical packet detail page; inline actions are siblings
+            of the Link (not nested) — same action set + primitive as the Plants tab cards
+            (NORTH_STAR "No duplicate paths"). */}
+        <Link
+          href={`/vault/packets/${pkt.id}?from=profile&profileId=${profileId}`}
+          className="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors"
+        >
+          <span className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"}`}>
+            {pktImageUrl ? (
+              <img src={pktImageUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <ICON_MAP.SeedPacket className="w-5 h-5 text-neutral-400" aria-hidden />
+            )}
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className={`block text-sm font-semibold truncate ${isArchived ? "text-neutral-500" : "text-neutral-900"}`}>
+              {pkt.vendor_name?.trim() || "—"}
+            </span>
+            {year != null && <span className="block text-xs text-neutral-500">{year}</span>}
+          </span>
+          <span className="shrink-0 inline-flex items-center">
+            {isArchived ? (
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>
+            ) : (
+              <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-700">{qtyStatusToLabel(pkt.qty_status)}</span>
+            )}
+          </span>
+        </Link>
+        {canEdit && (
+          <span className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onEditPacket(pkt); }}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
+              aria-label="Edit packet"
+            >
+              <ICON_MAP.Edit className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenJournal(pkt); }}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+              aria-label="Add journal entry"
+            >
+              <ICON_MAP.Journal className="w-4 h-4" />
+            </button>
+          </span>
+        )}
+        <ICON_MAP.ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" aria-hidden />
+      </li>
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-      <ul className="divide-y divide-neutral-100">
-        {sortedPackets.map((pkt) => {
-          const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
-          const extraImgs = packetImagesByPacketId.get(pkt.id) ?? [];
-          const pktImageUrl = getPacketImageUrls(pkt, extraImgs)[0] ?? null;
-          const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
-          return (
-            <li key={pkt.id} className={`flex items-center gap-1 pr-3 ${isArchived ? "bg-neutral-50" : ""}`}>
-              {/* Row body links to the canonical packet detail page; inline actions are siblings
-                  of the Link (not nested) — same action set + primitive as the Plants tab cards
-                  (NORTH_STAR "No duplicate paths"). */}
-              <Link
-                href={`/vault/packets/${pkt.id}?from=profile&profileId=${profileId}`}
-                className="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors"
-              >
-                <span className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"}`}>
-                  {pktImageUrl ? (
-                    <img src={pktImageUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <ICON_MAP.SeedPacket className="w-5 h-5 text-neutral-400" aria-hidden />
-                  )}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className={`block text-sm font-semibold truncate ${isArchived ? "text-neutral-500" : "text-neutral-900"}`}>
-                    {pkt.vendor_name?.trim() || "—"}
-                  </span>
-                  {year != null && <span className="block text-xs text-neutral-500">{year}</span>}
-                </span>
-                <span className="shrink-0 inline-flex items-center">
-                  {isArchived ? (
-                    <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>
-                  ) : (
-                    <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-700">{qtyStatusToLabel(pkt.qty_status)}</span>
-                  )}
-                </span>
-              </Link>
-              {canEdit && (
-                <span className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onEditPacket(pkt); }}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
-                    aria-label="Edit packet"
-                  >
-                    <ICON_MAP.Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onOpenJournal(pkt); }}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                    aria-label="Add journal entry"
-                  >
-                    <ICON_MAP.Journal className="w-4 h-4" />
-                  </button>
-                </span>
-              )}
-              <ICON_MAP.ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" aria-hidden />
-            </li>
-          );
-        })}
-      </ul>
+      {inStockPackets.length > 0 && (
+        <ul className="divide-y divide-neutral-100">{inStockPackets.map(renderPacketRow)}</ul>
+      )}
+      {usedUpPackets.length > 0 && (
+        <>
+          <div className={`px-3 py-2 bg-neutral-50/60 ${inStockPackets.length > 0 ? "border-t border-neutral-100" : ""}`}>
+            <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Used up ({usedUpPackets.length})</span>
+          </div>
+          <ul className="divide-y divide-neutral-100">{usedUpPackets.map(renderPacketRow)}</ul>
+        </>
+      )}
       {canEdit && !isPermanent && (
         <div className="p-4 border-t border-neutral-100">
           <button

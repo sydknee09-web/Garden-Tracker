@@ -5,7 +5,6 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
-import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { identityKeyFromVariety } from "@/lib/identityKey";
@@ -19,16 +18,6 @@ type ArchivedItem = {
   vendor: string;
 };
 
-type ArchivedPlanting = {
-  id: string;
-  plant_profile_id: string;
-  sown_date: string;
-  ended_at: string | null;
-  name: string;
-  variety_name: string | null;
-  harvest_count: number;
-};
-
 export default function SettingsDeveloperPage() {
   const { user, session } = useAuth();
   const { isUnlocked } = useDeveloperUnlock();
@@ -36,9 +25,6 @@ export default function SettingsDeveloperPage() {
   const [loading, setLoading] = useState(true);
   const [unarchivingId, setUnarchivingId] = useState<string | null>(null);
   const [archiveExpanded, setArchiveExpanded] = useState(false);
-  const [archivedPlantings, setArchivedPlantings] = useState<ArchivedPlanting[]>([]);
-  const [plantingsLoading, setPlantingsLoading] = useState(true);
-  const [plantingsExpanded, setPlantingsExpanded] = useState(false);
   const [repairHeroRunning, setRepairHeroRunning] = useState(false);
   const [repairHeroProgress, setRepairHeroProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [repairHeroResult, setRepairHeroResult] = useState<{ updated: number; failed: number } | null>(null);
@@ -161,53 +147,8 @@ export default function SettingsDeveloperPage() {
     setLoading(false);
   }, [user?.id]);
 
-  const loadArchivedPlantings = useCallback(async () => {
-    if (!user?.id) return;
-    const { data: rows } = await supabase
-      .from("grow_instances")
-      .select("id, plant_profile_id, sown_date, ended_at")
-      .eq("user_id", user.id)
-      .is("deleted_at", null)
-      .eq("status", "archived")
-      .order("ended_at", { ascending: false });
-    if (!rows?.length) { setArchivedPlantings([]); setPlantingsLoading(false); return; }
-    const profileIds = Array.from(new Set((rows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id)));
-    const growIds = (rows as { id: string }[]).map((r) => r.id);
-    const [profilesRes, harvestRes] = await Promise.all([
-      supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds),
-      supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).ilike("note", "%harvest%"),
-    ]);
-    const nameMap: Record<string, { name: string; variety_name: string | null }> = {};
-    (profilesRes.data ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => { nameMap[p.id] = { name: p.name, variety_name: p.variety_name }; });
-    const harvestCountByGrow: Record<string, number> = {};
-    (harvestRes.data ?? []).forEach((h: { grow_instance_id: string }) => {
-      if (h.grow_instance_id) harvestCountByGrow[h.grow_instance_id] = (harvestCountByGrow[h.grow_instance_id] ?? 0) + 1;
-    });
-    setArchivedPlantings(
-      (rows as { id: string; plant_profile_id: string; sown_date: string; ended_at: string | null }[]).map((r) => ({
-        ...r,
-        name: nameMap[r.plant_profile_id]?.name ?? "Unknown",
-        variety_name: nameMap[r.plant_profile_id]?.variety_name ?? null,
-        harvest_count: harvestCountByGrow[r.id] ?? 0,
-      }))
-    );
-    setPlantingsLoading(false);
-  }, [user?.id]);
-
   useEffect(() => { loadArchived(); }, [loadArchived]);
-  useEffect(() => { loadArchivedPlantings(); }, [loadArchivedPlantings]);
   useEffect(() => { loadTrash(); }, [loadTrash]);
-
-  const [deletingPlantingId, setDeletingPlantingId] = useState<string | null>(null);
-  const handleDeleteArchivedPlanting = useCallback(async (growInstanceId: string) => {
-    if (!user?.id) return;
-    setDeletingPlantingId(growInstanceId);
-    const now = new Date().toISOString();
-    await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", growInstanceId).eq("user_id", user.id);
-    await softDeleteTasksForGrowInstance(growInstanceId, user.id);
-    setArchivedPlantings((prev) => prev.filter((p) => p.id !== growInstanceId));
-    setDeletingPlantingId(null);
-  }, [user?.id]);
 
   const handleUnarchive = useCallback(async (item: ArchivedItem) => {
     if (!user?.id) return;
@@ -717,58 +658,6 @@ export default function SettingsDeveloperPage() {
           <p className="text-sm text-neutral-500 mb-2">Self-tracked calls to Gemini, OpenAI, and Perenual. For exact billing, check each provider&apos;s dashboard.</p>
           <span className="text-sm text-emerald-600 font-medium">View usage &rarr;</span>
         </Link>
-      </section>
-      )}
-
-      {matchesSection({ title: "Archived Plantings", desc: "Past growing batches" }) && (
-      <section>
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Archived Plantings</h3>
-          <p className="text-sm text-neutral-500 mb-3">Past growing batches you ended or that died.</p>
-          {plantingsLoading ? (
-            <p className="text-neutral-400 text-sm">Loading...</p>
-          ) : archivedPlantings.length === 0 ? (
-            <p className="text-neutral-400 text-sm">No archived plantings.</p>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setPlantingsExpanded((e) => !e)}
-                className="min-h-[44px] w-full flex items-center justify-between px-4 py-3 rounded-xl border border-neutral-200 bg-neutral-50 text-left font-medium text-neutral-800 hover:bg-neutral-100"
-                aria-expanded={plantingsExpanded}
-              >
-                <span>{plantingsExpanded ? "Hide" : `View ${archivedPlantings.length} planting${archivedPlantings.length === 1 ? "" : "s"}`}</span>
-                <span className="text-neutral-400 text-lg leading-none shrink-0" aria-hidden>{plantingsExpanded ? "-" : "+"}</span>
-              </button>
-              {plantingsExpanded && (
-                <ul className="mt-2 border border-neutral-200 rounded-xl bg-white divide-y divide-neutral-100 overflow-hidden">
-                  {archivedPlantings.map((item) => (
-                    <li key={item.id} className="px-4 py-3 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/library/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline">
-                          {item.name}{item.variety_name?.trim() ? ` (${item.variety_name})` : ""}
-                        </Link>
-                        <p className="text-sm text-neutral-500 mt-1">
-                          Planted {new Date(item.sown_date).toLocaleDateString()}
-                          {" - Harvested "}{item.harvest_count} {item.harvest_count === 1 ? "time" : "times"}
-                          {" - Ended "}{item.ended_at ? new Date(item.ended_at).toLocaleDateString() : "—"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteArchivedPlanting(item.id)}
-                        disabled={deletingPlantingId === item.id}
-                        className="shrink-0 min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingPlantingId === item.id ? "…" : "Delete"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
       </section>
       )}
 

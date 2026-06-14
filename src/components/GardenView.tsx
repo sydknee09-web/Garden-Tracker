@@ -386,7 +386,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
       }
 
       // Carry-forward filter: only show currently-growing instances (status='growing' OR null/unknown).
-      // Archived/dead instances live in Settings → Archived Plantings, not on Garden tab.
+      // Archived/dead instances live in Planting History (Settings → Planting History), not on Garden tab.
       const activeGrows = rawGrows.filter((r) => r.status === "growing" || r.status == null);
 
       if (activeGrows.length === 0) {
@@ -1077,7 +1077,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
             <h2 id="bulk-end-batch-title" className="text-lg font-semibold text-black mb-2">End {bulkSelected.size} Planting{bulkSelected.size !== 1 ? "s" : ""}?</h2>
             <p className="text-sm text-black/70 mb-4">
-              Selected plantings will move to Settings → Archived Plantings. History is preserved.
+              Selected plantings will move to Planting History. History is preserved.
             </p>
             <div className="flex gap-3 justify-end">
               <button

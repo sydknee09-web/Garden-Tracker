@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/useToast";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 
 type GrowRow = {
   id: string;
@@ -32,6 +33,12 @@ export default function PlantingHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [restoreOpen, setRestoreOpen] = useState<GrowRow | null>(null);
   const [restoreSaving, setRestoreSaving] = useState(false);
+  // Permanent-delete (relocated from the retired Settings → Developer → Archived Plantings
+  // browser so there is ONE canonical archive surface — NORTH_STAR §1 no duplicate paths).
+  // Guarded with a type-DELETE confirmation since it's irreversible.
+  const [deleteOpen, setDeleteOpen] = useState<GrowRow | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const { toast, showToast, showErrorToast } = useToast();
 
   async function handleRestore(row: GrowRow) {
@@ -55,6 +62,31 @@ export default function PlantingHistoryPage() {
     );
     showToast("Restored");
     setRestoreOpen(null);
+  }
+
+  async function handleDelete(row: GrowRow) {
+    if (!user) return;
+    setDeleteSaving(true);
+    const now = new Date().toISOString();
+    const { error: err } = await supabase
+      .from("grow_instances")
+      .update({ deleted_at: now })
+      .eq("id", row.id)
+      .eq("user_id", user.id);
+    if (err) {
+      setDeleteSaving(false);
+      console.error("PlantingHistoryPage.handleDelete: update failed", err);
+      showErrorToast("Couldn't delete — please try again");
+      return;
+    }
+    // Cascade: soft-delete any care tasks tied to this planting (mirrors the retired
+    // dev-page handler so behavior is identical, just relocated).
+    await softDeleteTasksForGrowInstance(row.id, user.id);
+    setDeleteSaving(false);
+    setGrows((prev) => prev.filter((g) => g.id !== row.id));
+    showToast("Planting deleted");
+    setDeleteOpen(null);
+    setDeleteConfirmText("");
   }
 
   useEffect(() => {
@@ -153,7 +185,7 @@ export default function PlantingHistoryPage() {
                             {statusLabel(g.status)}
                           </span>
                           {g.status === "archived" && (
-                            <span className="inline-flex min-h-[44px] items-center">
+                            <span className="inline-flex min-h-[44px] items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => setRestoreOpen(g)}
@@ -161,6 +193,14 @@ export default function PlantingHistoryPage() {
                                 aria-label={`Restore ${g.profile_name} to Growing`}
                               >
                                 Restore
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setDeleteOpen(g); setDeleteConfirmText(""); }}
+                                className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline whitespace-nowrap px-2 py-1"
+                                aria-label={`Permanently delete ${g.profile_name}`}
+                              >
+                                Delete
                               </button>
                             </span>
                           )}
@@ -208,6 +248,46 @@ export default function PlantingHistoryPage() {
               >
                 {restoreSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
                 Restore
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {deleteOpen && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => { setDeleteOpen(null); setDeleteConfirmText(""); }} />
+          <div className="fixed left-4 right-4 bottom-4 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm">
+            <h2 className="font-semibold text-neutral-900 text-base mb-1">Permanently Delete Planting?</h2>
+            <p className="text-sm text-neutral-500 mb-3">
+              This will permanently delete this planting and its history. This cannot be undone. Type DELETE to confirm.
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              aria-label="Type DELETE to confirm"
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="w-full min-h-[44px] px-3 py-2 mb-4 rounded-xl border border-neutral-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setDeleteOpen(null); setDeleteConfirmText(""); }}
+                className="flex-1 min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteOpen && handleDelete(deleteOpen)}
+                disabled={deleteSaving || deleteConfirmText.trim() !== "DELETE"}
+                className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deleteSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
+                Delete
               </button>
             </div>
           </div>

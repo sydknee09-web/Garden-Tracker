@@ -30,6 +30,84 @@ export function VaultProfilePlantingsTab({
 }: VaultProfilePlantingsTabProps) {
   if (!profile) return null;
 
+  // Split currently-growing from past plantings so the tab matches the Garden card
+  // (Garden hides archived; GardenView active filter = status 'growing' || null). The
+  // headline Plants (N) counts growing only (page.tsx); past plantings stay visible here
+  // because the per-plant profile is the information hub for its full history (NORTH_STAR §3).
+  const isGrowing = (gi: GrowInstance) => gi.status === "growing" || gi.status == null;
+  const growingInstances = growInstances.filter(isGrowing);
+  const pastInstances = growInstances.filter((gi) => !isGrowing(gi));
+
+  const renderGrowRow = (gi: GrowInstance, giIdx: number, isPast: boolean) => {
+    const statusColor = isPast ? "bg-neutral-100 text-neutral-600" : "bg-emerald-100 text-emerald-800";
+    const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
+    const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
+    const loc = gi.location?.trim() ?? "";
+    const titleLabel = loc || `Planting ${giIdx + 1}`;
+    const qty = (gi as GrowInstance).plant_count;
+    const qtyLabel =
+      qty != null && qty > 0
+        ? `${qty} ${qty === 1 ? "plant" : "plants"}`
+        : (gi as GrowInstance).purchase_quantity != null && (gi as GrowInstance).purchase_quantity! > 0
+          ? `${(gi as GrowInstance).purchase_quantity} purchased`
+          : null;
+    const vendorLabel = (gi as GrowInstance).vendor?.trim() || null;
+    const cardContent = (
+      <>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="text-sm font-medium text-neutral-900 truncate">{titleLabel}</span>
+            {qtyLabel && (
+              <span className="text-xs font-medium text-neutral-600 shrink-0" title="Plant count for this planting">
+                {qtyLabel}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${statusColor}`}>{isPast ? "Archived" : "Growing"}</span>
+            {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
+          </div>
+          <span className="text-xs text-neutral-500 shrink-0">{formatDisplayDate(gi.sown_date)}</span>
+        </div>
+        {vendorLabel && <p className="text-xs text-neutral-500">{vendorLabel}</p>}
+      </>
+    );
+    return (
+      <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => onViewGrow(gi)}
+              className="block w-full text-left -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]"
+              aria-label={isPermanent ? "View plant details" : "View planting details"}
+            >
+              {cardContent}
+            </button>
+          </div>
+          {giCanEdit && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onEditGrow(gi); }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
+                aria-label="Edit plant"
+              >
+                <ICON_MAP.Edit className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenJournal(gi); }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                aria-label="Add journal entry"
+              >
+                <ICON_MAP.Journal className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {growInstances.length > 0 && (
@@ -63,75 +141,15 @@ export function VaultProfilePlantingsTab({
         </div>
       ) : (
         <div className="space-y-3">
-          {growInstances.map((gi, giIdx) => {
-            const statusColor = gi.status === "growing" ? "bg-emerald-100 text-emerald-800" : "bg-neutral-100 text-neutral-600";
-            const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
-            const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
-            const loc = gi.location?.trim() ?? "";
-            const titleLabel = loc || `Planting ${giIdx + 1}`;
-            const qty = (gi as GrowInstance).plant_count;
-            const qtyLabel =
-              qty != null && qty > 0
-                ? `${qty} ${qty === 1 ? "plant" : "plants"}`
-                : (gi as GrowInstance).purchase_quantity != null && (gi as GrowInstance).purchase_quantity! > 0
-                  ? `${(gi as GrowInstance).purchase_quantity} purchased`
-                  : null;
-            const vendorLabel = (gi as GrowInstance).vendor?.trim() || null;
-            const cardContent = (
-              <>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <span className="text-sm font-medium text-neutral-900 truncate">{titleLabel}</span>
-                    {qtyLabel && (
-                      <span className="text-xs font-medium text-neutral-600 shrink-0" title="Plant count for this planting">
-                        {qtyLabel}
-                      </span>
-                    )}
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${statusColor}`}>{gi.status === "archived" ? "Archived" : "Growing"}</span>
-                    {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
-                  </div>
-                  <span className="text-xs text-neutral-500 shrink-0">{formatDisplayDate(gi.sown_date)}</span>
-                </div>
-                {vendorLabel && <p className="text-xs text-neutral-500">{vendorLabel}</p>}
-              </>
-            );
-            return (
-              <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => onViewGrow(gi)}
-                      className="block w-full text-left -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]"
-                      aria-label={isPermanent ? "View plant details" : "View planting details"}
-                    >
-                      {cardContent}
-                    </button>
-                  </div>
-                  {giCanEdit && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onEditGrow(gi); }}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
-                        aria-label="Edit plant"
-                      >
-                        <ICON_MAP.Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpenJournal(gi); }}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                        aria-label="Add journal entry"
-                      >
-                        <ICON_MAP.Journal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+          {growingInstances.map((gi, i) => renderGrowRow(gi, i, false))}
+          {pastInstances.length > 0 && (
+            <>
+              <div className="pt-2 pb-0.5">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Past plantings ({pastInstances.length})</span>
               </div>
-            );
-          })}
+              {pastInstances.map((gi, i) => renderGrowRow(gi, i, true))}
+            </>
+          )}
         </div>
       )}
     </>
