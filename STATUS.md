@@ -1,6 +1,6 @@
 # Garden Tracker — STATUS (single source of truth)
 
-**Last updated:** 2026-06-14 (Sprint 12 Phase 3 — Planting History UX + back-label sweep shipped `4ac6134`)
+**Last updated:** 2026-06-14 (Sprint 14 — polish bundle shipped `67bc43b`)
 
 > **What this doc is.** The ONE place to check "where are we right now." Scannable, mobile-friendly, plain language. When Syd asks for "status" or "the plan," this is the answer — not a paraphrase.
 >
@@ -30,15 +30,16 @@ Syd's 2026-06-14 feedback was right: there have been **three different "Sprint" 
 
 ## A) Where we are right now
 
-**Date:** 2026-06-14. **Latest shipped code:** `bfb5a17` (Sprint 13 — consumePackets archive-not-soft-delete forward-fix). Backfill migration was committed then reverted (`70e50b9`) per Syd's Option-C call.
+**Date:** 2026-06-14. **Latest shipped code:** `67bc43b` (Sprint 14 — polish bundle: FAB modal cohesion + swipe half-state + filter persistence + archived nav + inventory AND).
 
-- **Just shipped (counter #3):** **Sprint 13 — packet-history forward-fix (Option C, NO backfill)** (`bfb5a17`). `consumePackets` archives instead of soft-deleting consumed packets (`qty=0, is_archived=true`, no `deleted_at`), matching the 4 other consume paths — every NEW consumption stays visible in "Used up (N)". **Backfill explicitly SKIPPED per Syd 2026-06-14 20:04:** her account is years of test-data bug exposure new users won't have; the forward-fix gives every new account the clean experience without touching her historical mess. The 19 already-tombstoned packets on her account stay as-is — she'll manually un-archive specific cases (e.g. Parsley) from Developer tools if wanted. The committed migration was reverted (`70e50b9`); never applied to prod.
+- **Just shipped (counter #3):** **Sprint 14 — polish bundle (5 items)** (`67bc43b`). [#70] Shared `<FabAddOptionCard>` primitive across Add Plant + Add Seed Packet pickers (anti-drift) + instruction-voice subtitles + universal-X parity on menu nav screens. [#69] `SwipeCompleteRow` clamps right-swipe on complete-only surfaces (Home At-a-Glance + Shopping List) — kills the empty-green-box half-state (VISION §8: At-a-Glance is complete-only). [#74] `useFilterState` persists active filters to sessionStorage → survive detail-page nav + browser/hardware back. [#75] `NavHighlightContext` drops the Garden tab highlight for archived plantings. [#83] Library inventory toggles OR→AND (Syd 19:06). **Flags for Syd:** Packets toggles KEPT OR (its two are mutually-exclusive — AND would always empty; may want single-select radio); filter persistence chose sessionStorage over URL params (not shareable); sort-reset-on-back is an adjacent follow-up; #75 archived-nav highlight needs phone dogfood.
+- **Prior ship (counter #3):** **Sprint 13 — packet-history forward-fix (Option C, NO backfill)** (`bfb5a17`). `consumePackets` archives instead of soft-deleting consumed packets (`qty=0, is_archived=true`, no `deleted_at`), matching the 4 other consume paths — every NEW consumption stays visible in "Used up (N)". **Backfill explicitly SKIPPED per Syd 2026-06-14 20:04:** her account is years of test-data bug exposure new users won't have; the forward-fix gives every new account the clean experience without touching her historical mess. The 19 already-tombstoned packets on her account stay as-is — she'll manually un-archive specific cases (e.g. Parsley) from Developer tools if wanted. The committed migration was reverted (`70e50b9`); never applied to prod.
 - **Prior ship (counter #3):** **Sprint 13 Phase C (1/2) — "Previously owned" filter fix** (`ceb6776`). Library/Vault "Previously owned" toggle no longer uses the `plant_profiles.status` proxy (which false-matched profiles that never had a packet — the Parsley dogfood bug, Sprint 12 Phase 2 #73). New `ever_owned` signal (profile has ≥1 packet row EVER, incl. archived + soft-deleted history) gates the toggle via `isPreviouslyOwned(ever_owned && packet_count===0)`. Non-destructive; no migration. **Held (Phase C 2/2):** the destructive backfill migration + `consumePackets` soft-delete forward-fix — pending Syd's Phase A SQL classification + migration greenlight (fuzzy consumption-vs-deletion predicate → Syd-ASK).
 - **Prior ship (counter #3):** **Sprint 12 Phase 3 — Planting History UX + back-button sweep** (`4ac6134`). Planting History back → Settings (named label); mobile cards; "Currently growing (N)" / "Archived plantings (N)" sections; app-wide honest-label back-button sweep on 10 single-parent pages.
 - **In flight (counter #3):** **Sprint 13 packet-history architecture** — Phase A diagnostic queries authored for Syd (live SQL not runnable from this checkout); Phase B locked on **Option B** (unify on `is_archived`; `deleted_at` = true-deletion-only); Phase C 2/2 (backfill + consumePackets fix) awaiting Syd's Phase A data + migration greenlight.
 - **v1 readiness:** **~83% to the v1 ship gate** (from the 2026-05-30 math; the large body of June work since then is dogfood polish + IA refinement, not new v1-gate chapters). The remaining v1 blockers are **Syd dashboard actions**, not code — see [§ G](#g-v1-launch-checklist).
 
-> **One-line address today:** *"Sprint 12 Phase 3 (Planting History UX + back-label sweep) just shipped — counter #3 is the live line. No code in flight; awaiting Syd dogfood confirmation."*
+> **One-line address today:** *"Sprint 14 polish bundle (`67bc43b`, 5 items) just shipped — counter #3 is the live line. No code in flight; awaiting Syd dogfood on FAB modals / swipe / filter back-nav / archived nav / inventory AND, plus 3 flagged decisions (Packets toggles, sessionStorage-vs-URL, sort-reset)."*
 
 ---
 
@@ -89,7 +90,7 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 
 ## C) In flight right now
 
-**Nothing in flight. Sprint 13 is CODE-COMPLETE** (forward-fix only, Option C — `bfb5a17`). No migration; no prod data touched.
+**Nothing in flight. Sprint 14 is SHIPPED** (`67bc43b`, polish bundle — see §A). No schema/migration; no prod data touched. Sprint 13 also code-complete (`bfb5a17`).
 
 - **Phase A (DONE 2026-06-14):** 8 "Previously owned" matches → 5 Type-C false-positives (excluded by `ceb6776`), 2 already-correct, 1 Type-B (Parsley, confirmed `has_live_planting=false`).
 - **Phase B (locked):** Option B semantics — `is_archived` = canonical used-up state; `deleted_at` = true deletion only (NORTH_STAR §1 + VISION §8:509 + Law 3). The forward-fix implements the go-forward half.
@@ -112,7 +113,8 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 | `4ac6134` | Sprint 12 Phase 3 (#3) | **Planting History UX + back-label sweep** — back→Settings (named) + mobile cards + Currently-growing/Archived sections; 10-page honest-label back-button sweep |
 | `ceb6776` | Sprint 13 Phase C 1/2 (#3) | **"Previously owned" filter on real packet history** — `ever_owned` signal replaces `plant_profiles.status` proxy; fixes Parsley false-positive (#73); non-destructive, no migration |
 | `bfb5a17` | Sprint 13 (#3) | **consumePackets archive-not-soft-delete** — Vault Plant flow stops soft-deleting consumed packets (Law-3 archival, not Law-2 deletion); stops new "Used up" history loss |
-| `9defc15` → `70e50b9` | Sprint 13 (#3) | backfill migration committed then **reverted** (Syd Option-C); never applied to prod ← HEAD |
+| `9defc15` → `70e50b9` | Sprint 13 (#3) | backfill migration committed then **reverted** (Syd Option-C); never applied to prod |
+| `67bc43b` | Sprint 14 (#3) | **Polish bundle (5 items)** — FAB modal cohesion (#70, shared `FabAddOptionCard`) + swipe half-state fix (#69) + filter persistence on back-nav (#74) + archived-planting nav highlight (#75) + Library inventory AND (#83). No schema. ← HEAD |
 
 *(Full ship history with hashes + dogfood paths: `docs/ROADMAP.md` §5 + §6.)*
 
@@ -165,6 +167,7 @@ Source: `gt_v1_scope.md §3` (6 items, from the 2026-05-28 Supabase + backup aud
 
 | Date | Address | What changed |
 |---|---|---|
+| 2026-06-14 | Sprint 14 (#3) | `67bc43b` — polish bundle (5 items): #70 shared `FabAddOptionCard` + voice/X parity across FAB Add pickers; #69 `SwipeCompleteRow` right-swipe clamp (Home At-a-Glance/Shopping List empty-green-box fix); #74 sessionStorage active-filter persistence (back-nav restore); #75 `NavHighlightContext` archived-planting Garden-tab suppression; #83 Library inventory OR→AND. Packets kept OR (mutually-exclusive toggles) + sessionStorage-over-URL + sort-reset + #75 dogfood = flagged for Syd. Tests 725/725, build clean, auto-push tier. |
 | 2026-06-14 | Sprint 13 (#3) | **Option C locked (Syd 20:04):** forward-fix only, NO backfill. Reverted the backfill migration (`70e50b9`, drops `9defc15`'s file) — never applied to prod. Rationale: Syd's account is legacy test-data mess; new users get clean schema from the forward-fix; she'll manually un-archive Parsley etc. from Developer tools. Sprint 13 code-complete. |
 | 2026-06-14 | Sprint 13 (#3) | `9defc15` — backfill migration committed (later reverted, see above). Parsley confirmed `has_live_planting=false`. |
 | 2026-06-14 | Sprint 13 (#3) | `bfb5a17` — consumePackets archive-not-soft-delete forward-fix. Phase A data in (Syd 19:33): 5/8 Type-C false-positives excluded by `ceb6776`, 1 Type-B (Parsley); discriminator NOT sharp (19 consumption-shaped vs 3 with live planting). Backfill held → recommend Option A (broad, all 19) since Parsley is in the 16-ambiguous; awaiting Syd migration greenlight. |
