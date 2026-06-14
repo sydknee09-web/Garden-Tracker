@@ -36,13 +36,6 @@ export default function VaultPacketDetailPage() {
   const [profileVariety, setProfileVariety] = useState<string>("");
   const [profileHeroPath, setProfileHeroPath] = useState<string | null>(null);
   const [profilePrimaryPath, setProfilePrimaryPath] = useState<string | null>(null);
-  // Growing recs are profile-canonical (one set per variety); read-only here, edited on the profile.
-  const [profileSun, setProfileSun] = useState<string | null>(null);
-  const [profileSpacing, setProfileSpacing] = useState<string | null>(null);
-  const [profileGermination, setProfileGermination] = useState<string | null>(null);
-  const [profileMaturity, setProfileMaturity] = useState<number | null>(null);
-  const [profileSowingDepth, setProfileSowingDepth] = useState<string | null>(null);
-  const [profileDescription, setProfileDescription] = useState<string | null>(null);
   const [growInstances, setGrowInstances] = useState<GrowInstance[]>([]);
   const [extraImages, setExtraImages] = useState<{ image_path: string }[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -93,7 +86,7 @@ export default function VaultPacketDetailPage() {
     setPackets([row]);
 
     const [{ data: prof }, { data: grows }, { data: imgs }] = await Promise.all([
-      supabase.from("plant_profiles").select("name, variety_name, hero_image_path, primary_image_path, sun, plant_spacing, days_to_germination, harvest_days, botanical_care_notes, plant_description").eq("id", row.plant_profile_id).maybeSingle(),
+      supabase.from("plant_profiles").select("name, variety_name, hero_image_path, primary_image_path").eq("id", row.plant_profile_id).maybeSingle(),
       supabase
         .from("grow_instances")
         .select("id, sown_date, location, seed_packet_id, seeds_sown, seeds_sprouted")
@@ -109,20 +102,11 @@ export default function VaultPacketDetailPage() {
 
     const p = prof as {
       name?: string; variety_name?: string | null; hero_image_path?: string | null; primary_image_path?: string | null;
-      sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null;
-      botanical_care_notes?: unknown; plant_description?: string | null;
     } | null;
     setProfileName(p?.name ?? "");
     setProfileVariety(p?.variety_name?.trim() ?? "");
     setProfileHeroPath(p?.hero_image_path?.trim() || null);
     setProfilePrimaryPath(p?.primary_image_path?.trim() || null);
-    setProfileSun(p?.sun?.trim() || null);
-    setProfileSpacing(p?.plant_spacing?.trim() || null);
-    setProfileGermination(p?.days_to_germination?.trim() || null);
-    setProfileMaturity(p?.harvest_days ?? null);
-    const bcn = p?.botanical_care_notes;
-    setProfileSowingDepth(bcn && typeof bcn === "object" && typeof (bcn as { sowing_depth?: unknown }).sowing_depth === "string" ? (bcn as { sowing_depth: string }).sowing_depth.trim() || null : null);
-    setProfileDescription(p?.plant_description?.trim() || null);
     setGrowInstances((grows ?? []) as GrowInstance[]);
     setExtraImages(((imgs ?? []) as { image_path: string }[]).map((r) => ({ image_path: r.image_path })));
     setLoading(false);
@@ -261,21 +245,6 @@ export default function VaultPacketDetailPage() {
   const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
   const journal = journalByPacketId[pkt.id] ?? [];
 
-  // Description: a packet's own captured vendor description takes precedence; otherwise fall back
-  // to the profile's canonical description WITH attribution so the source is transparent (Option C).
-  const packetDescription = (pkt.vendor_specs as { plant_description?: string } | null)?.plant_description?.trim() || null;
-  const descriptionText = packetDescription ?? profileDescription;
-  const descriptionFromProfile = !packetDescription && !!profileDescription;
-
-  // Growing recs come from the profile (canonical, one set per variety). Read-only here.
-  const growingRows: { label: string; value: string }[] = [
-    { label: "Sun", value: profileSun || "—" },
-    { label: "Spacing", value: profileSpacing || "—" },
-    { label: "Days to germination", value: profileGermination || "—" },
-    { label: "Days to maturity", value: profileMaturity != null ? `${profileMaturity} days` : "—" },
-    { label: "Sowing depth", value: profileSowingDepth || "—" },
-  ];
-
   const withGermination = growInstances.filter(
     (gi) => gi.seeds_sown != null && gi.seeds_sprouted != null && gi.seeds_sown > 0,
   );
@@ -405,6 +374,13 @@ export default function VaultPacketDetailPage() {
           />
           <PacketQtyOptions value={pkt.qty_status} onChange={(v) => updatePacketQty(pkt.id, v)} variant="remaining" disabled={!canEdit} />
         </div>
+        {/* Price is packet-specific (captured on import / Edit pill); read-only here, hidden when empty. */}
+        {pkt.price?.trim() && (
+          <div className="mb-3">
+            <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Price</p>
+            <p className="text-sm text-neutral-700">{pkt.price}</p>
+          </div>
+        )}
         {canEdit ? (
           <>
             <div className="mb-3">
@@ -455,29 +431,9 @@ export default function VaultPacketDetailPage() {
         )}
       </div>
 
-      {/* How to Grow — the variety's canonical growing recs (from the profile, read-only here).
-          One set per variety; edited on the plant profile (Profile pill). */}
-      <div className="rounded-xl bg-white border border-black/10 p-4 mb-4">
-        <h2 className="text-sm font-semibold text-neutral-700 mb-1">How to Grow</h2>
-        <p className="text-xs text-neutral-500 mb-3">Growing info for this variety. Edit it on the plant profile.</p>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-          {growingRows.map(({ label, value }) => (
-            <div key={label}>
-              <dt className="text-xs text-neutral-500">{label}</dt>
-              <dd className="text-sm text-neutral-900 font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {descriptionText && (
-          <div className="mt-3">
-            <p className="text-xs text-neutral-500">Description</p>
-            <p className="text-sm text-neutral-700 whitespace-pre-wrap">{descriptionText}</p>
-            {descriptionFromProfile && (
-              <p className="text-xs text-neutral-500 italic mt-1">From plant profile</p>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Growing recs (sun/spacing/germination/maturity/description) live on the Plant Profile
+          encyclopedia, reachable via the Profile pill — not duplicated here. Packet detail shows
+          packet-specific data only (NORTH_STAR §1 No duplicate paths; encyclopedia-mission split). */}
 
       {/* Used in Instance */}
       <div className="rounded-xl bg-white border border-black/10 p-4 mb-4">
