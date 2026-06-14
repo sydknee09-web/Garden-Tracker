@@ -12,6 +12,8 @@ export interface SearchableMultiSelectProps {
   onChange: (ids: Set<string>) => void;
   placeholder?: string;
   label: string;
+  /** Visually hide the label (kept for screen readers) when the surrounding UI already names this field — e.g. a collapsible section header. */
+  hideLabel?: boolean;
   /** For initial selection when opened from context. */
   preSelectedIds?: string[];
   id?: string;
@@ -27,6 +29,7 @@ export function SearchableMultiSelect({
   onChange,
   placeholder = "Type to search…",
   label,
+  hideLabel = false,
   preSelectedIds,
   id: propId,
   dropdownZIndex = 110,
@@ -127,9 +130,11 @@ export function SearchableMultiSelect({
         e.preventDefault();
         const opt = filtered[highlightIndex]!;
         const next = new Set(selectedIds);
-        if (next.has(opt.id)) next.delete(opt.id);
+        const wasSelected = next.has(opt.id);
+        if (wasSelected) next.delete(opt.id);
         else next.add(opt.id);
         onChange(next);
+        if (!wasSelected) setFilter(""); // clear search after adding; ready for next query
         return;
       }
     },
@@ -139,9 +144,14 @@ export function SearchableMultiSelect({
   const toggle = useCallback(
     (opt: SearchableMultiSelectOption) => {
       const next = new Set(selectedIds);
-      if (next.has(opt.id)) next.delete(opt.id);
+      const wasSelected = next.has(opt.id);
+      if (wasSelected) next.delete(opt.id);
       else next.add(opt.id);
       onChange(next);
+      if (!wasSelected) {
+        setFilter(""); // clear search after adding; ready for next query
+        inputRef.current?.focus();
+      }
     },
     [selectedIds, onChange]
   );
@@ -170,7 +180,10 @@ export function SearchableMultiSelect({
 
   return (
     <div ref={containerRef} className="relative">
-      <label htmlFor={genId} className="block text-sm font-medium text-black/80 mb-1">
+      <label
+        htmlFor={genId}
+        className={hideLabel ? "sr-only" : "block text-sm font-medium text-black/80 mb-1"}
+      >
         {label}
       </label>
       {selected.length > 0 && (

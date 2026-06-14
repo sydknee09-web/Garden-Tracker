@@ -77,7 +77,6 @@ export function VaultGridRefineModal({
   filteredVarietyIds,
 }: VaultGridRefineModalProps) {
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
-  const currentMonth = new Date().getMonth() + 1;
   if (!open) return null;
 
   const sectionOptions = [
@@ -167,6 +166,7 @@ export function VaultGridRefineModal({
                   selectedIds={new Set(vaultFilters.filters.plantNames)}
                   onChange={(set) => vaultFilters.setPlantNames([...set])}
                   label="Plant Name"
+                  hideLabel
                   dropdownZIndex={120}
                 />
               </div>
@@ -180,7 +180,7 @@ export function VaultGridRefineModal({
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
               aria-expanded={refineBySection === "plantMonth"}
             >
-              <span>{vaultFilters.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in [Month]"}</span>
+              <span>{vaultFilters.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in Month"}</span>
               <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantMonth" ? "▼" : "▸"}</span>
             </button>
             {refineBySection === "plantMonth" && (
@@ -195,15 +195,14 @@ export function VaultGridRefineModal({
                 {MONTH_NAMES.map((monthName, i) => {
                   const monthNum = i + 1;
                   const selected = vaultFilters.filters.plantMonth === monthNum;
-                  const isCurrent = monthNum === currentMonth;
                   return (
                     <button
                       key={monthNum}
                       type="button"
                       onClick={() => vaultFilters.setPlantMonth(monthNum)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : isCurrent ? "text-emerald-700 hover:bg-black/5" : "text-black/80 hover:bg-black/5"}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                     >
-                      {monthName}{isCurrent ? " (this month)" : ""}
+                      {monthName}
                     </button>
                   );
                 })}

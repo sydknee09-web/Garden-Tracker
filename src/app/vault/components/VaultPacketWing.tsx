@@ -656,8 +656,6 @@ export function VaultPacketWingRefineModal() {
     setPacketHasDefault(true);
   }, [packetVendorFilter, packetSortBy, packetSortDirection, setPacketHasDefault]);
 
-  const currentMonth = new Date().getMonth() + 1;
-
   if (!ctx || !ctx.refineByOpen) return null;
 
   return (
@@ -775,6 +773,7 @@ export function VaultPacketWingRefineModal() {
                   selectedIds={new Set(vaultFilters?.filters.plantNames ?? [])}
                   onChange={(set) => vaultFilters?.setPlantNames([...set])}
                   label="Plant Name"
+                  hideLabel
                   dropdownZIndex={120}
                 />
               </div>
@@ -788,7 +787,7 @@ export function VaultPacketWingRefineModal() {
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
               aria-expanded={refineBySection === "plantMonth"}
             >
-              <span>{vaultFilters?.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in [Month]"}</span>
+              <span>{vaultFilters?.filters.plantMonth != null ? `Plant in ${MONTH_NAMES[vaultFilters.filters.plantMonth - 1]}` : "Plant in Month"}</span>
               <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantMonth" ? "▼" : "▸"}</span>
             </button>
             {refineBySection === "plantMonth" && (
@@ -803,15 +802,14 @@ export function VaultPacketWingRefineModal() {
                 {MONTH_NAMES.map((monthName, i) => {
                   const monthNum = i + 1;
                   const selected = vaultFilters?.filters.plantMonth === monthNum;
-                  const isCurrent = monthNum === currentMonth;
                   return (
                     <button
                       key={monthNum}
                       type="button"
                       onClick={() => vaultFilters?.setPlantMonth(monthNum)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : isCurrent ? "text-emerald-700 hover:bg-black/5" : "text-black/80 hover:bg-black/5"}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                     >
-                      {monthName}{isCurrent ? " (this month)" : ""}
+                      {monthName}
                     </button>
                   );
                 })}
@@ -854,6 +852,23 @@ export function VaultPacketWingRefineModal() {
               </div>
             )}
           </div>
+          {/* Vendor — primary section on Packets (promoted out of More Filters per Syd 2026-06-14; stays demoted on Library + Garden) */}
+          {(packetVendorChips ?? []).length > 0 && (
+            <div className="border-b border-black/5">
+              <button type="button" onClick={() => setRefineBySection?.((s) => (s === "packetVendor" ? null : "packetVendor"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetVendor"}>
+                <span>Vendor</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
+              </button>
+              {refineBySection === "packetVendor" && (
+                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                  <button type="button" onClick={() => setPacketVendorFilter?.(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                  {(packetVendorChips ?? []).map(({ value, count }) => (
+                    <button key={value} type="button" onClick={() => setPacketVendorFilter?.(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* More Filters */}
           <div className="border-b border-black/5">
             <button
@@ -930,23 +945,6 @@ export function VaultPacketWingRefineModal() {
                         <button type="button" onClick={() => vaultFilters?.setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.maturity === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
                         {(packetRefineChips?.maturity ?? []).map(({ value, count }) => (
                           <button key={value} type="button" onClick={() => vaultFilters?.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters?.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* Vendor */}
-                {(packetVendorChips ?? []).length > 0 && (
-                  <div className="border-t border-black/5">
-                    <button type="button" onClick={() => setRefineBySection?.((s) => (s === "packetVendor" ? null : "packetVendor"))} className="w-full flex items-center justify-between px-6 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetVendor"}>
-                      <span>Vendor</span>
-                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
-                    </button>
-                    {refineBySection === "packetVendor" && (
-                      <div className="px-6 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                        <button type="button" onClick={() => setPacketVendorFilter?.(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
-                        {(packetVendorChips ?? []).map(({ value, count }) => (
-                          <button key={value} type="button" onClick={() => setPacketVendorFilter?.(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
                         ))}
                       </div>
                     )}
